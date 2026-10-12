@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>成语填填</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f4f5f">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="成语填填">
+</head>
+<body>
+<!-- 主界面(第 5b 步):内容由 ui.js 动态生成 -->
+<div id="home" hidden></div>
+<!-- 选关页(第 5b 步):顶栏静态,关卡网格内容由 ui.js 动态生成 -->
+<div id="level-select" hidden>
+  <header id="level-select-topbar">
+    <button id="btn-levels-back" type="button" aria-label="返回">&#8249;</button>
+    <div id="level-select-title">选关</div>
+  </header>
+  <div id="level-grid"></div>
+</div>
+<div id="app">
+  <header id="topbar">
+    <button id="btn-back" type="button" aria-label="返回">&#8249;</button>
+    <div id="level-title"></div>
+    <div id="coins"><span class="coin-dot"></span><span id="coins-num"></span></div>
+  </header>
+  <main>
+    <div id="board"></div>
+    <div id="actions">
+      <button id="btn-settings" type="button" class="action-btn"><span class="action-label">设置</span></button>
+      <button id="btn-hint" type="button" class="action-btn"><span class="action-label">提示</span><span class="action-cost">60</span></button>
+      <button id="btn-meaning" type="button" class="action-btn"><span class="action-label">释义</span><span class="action-cost">30</span></button>
+    </div>
+    <div id="pool"></div>
+  </main>
+</div>
+<!-- 释义弹窗:遮罩 + 内容(内容由 ui.js 用 textContent 动态生成) -->
+<div id="meaning-overlay" hidden>
+  <div id="meaning-panel"></div>
+</div>
+<!-- 通关弹窗(第 4c 步):内容由 ui.js 动态生成;不能点遮罩关闭,只能点"下一关" -->
+<div id="win-overlay" hidden>
+  <div id="win-panel"></div>
+</div>
+<!-- 设置面板(第 5a 步):内容由 ui.js 动态生成;点遮罩或"关闭"按钮关闭 -->
+<div id="settings-overlay" hidden>
+  <div id="settings-panel"></div>
+</div>
+<!-- 轻提示容器:ui.js 往里塞小条,约 1.5 秒后自动消失 -->
+<div id="toast-container"></div>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    try { navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {}
+  });
+}
+</script>
+</body>
+</html>

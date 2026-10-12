@@ -1,0 +1,442 @@
+/* 成语填填 — 第 3 步界面骨架样式(纯 CSS,无图片/字体文件) */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: #f5efe0;            /* 宣纸米色 */
+  color: #333;
+  font-family: "Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", serif;
+}
+
+body { overflow-x: hidden; }      /* 360px 视口下保证无横向滚动 */
+
+#app {
+  max-width: 430px;               /* 电脑浏览器里居中显示 */
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 第 5b 步:#app/#home/#level-select 是 display:flex,会盖掉 UA 的 [hidden]{display:none},显式补一条 */
+#app[hidden], #home[hidden], #level-select[hidden] { display: none; }
+
+/* ---------- 主界面(第 5b 步) ---------- */
+#home {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 16px;
+}
+
+.home-title {
+  font-size: 44px;
+  font-weight: bold;
+  color: #c0392b;                 /* 朱红 */
+  margin-bottom: 8px;
+}
+
+.home-coins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+/* 主界面按钮:黛青底米黄字圆角,宽 200px,纵向排列 */
+.home-btn {
+  width: 200px;
+  padding: 12px 0;
+  background: #2f4f5f;            /* 黛青 */
+  color: #f5efe0;                 /* 米黄 */
+  border: 1px solid #2f4f5f;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.home-btn-sub {                   /* "继续游戏"下面的小字"第 N 关" */
+  font-size: 12px;
+  color: #f0c040;
+}
+
+/* ---------- 选关页(第 5b 步) ---------- */
+#level-select {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶栏:与游戏界面 #topbar 同风格(黛青) */
+#level-select-topbar {
+  position: relative;             /* 为标题绝对定位居中提供参照 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2f4f5f;            /* 黛青 */
+  color: #fff;
+  padding: 10px 14px;
+}
+
+#btn-levels-back {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  width: 40px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#level-select-title {
+  position: absolute;             /* 在整个顶栏内水平居中 */
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;           /* 不挡住返回按钮点击 */
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* 关卡格子网格:5 列(10 关 → 5 列 × 2 行) */
+#level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  padding: 24px 16px;
+}
+
+.level-tile {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: #2f4f5f;            /* 已解锁:黛青底 */
+  color: #f5efe0;                 /* 米黄字 */
+  border: 2px solid #2f4f5f;
+  font-family: inherit;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.level-tile.current { border-color: #c0392b; }   /* 当前关:朱红边框 */
+
+/* 未解锁:灰色底、文字变淡;点击无反应(handler 里 return,不弹提示) */
+.level-tile.locked {
+  background: #d9d9d9;
+  color: #b0b0b0;
+  border-color: #d9d9d9;
+  cursor: default;
+}
+
+/* ---------- 顶栏 ---------- */
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2f4f5f;            /* 黛青 */
+  color: #fff;
+  padding: 10px 14px;
+}
+
+#btn-back {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  width: 40px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#level-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+#coins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+}
+
+.coin-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f0c040;            /* CSS 画的小黄圆 */
+  border: 1px solid #c0392b;      /* 朱红描边 */
+  display: inline-block;
+}
+
+/* ---------- 格子区 ---------- */
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0 24px;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, var(--cell)));
+  grid-auto-rows: var(--cell);
+  gap: 6px;
+  justify-content: center;
+  margin: 12px 0 20px;
+}
+
+/* 网格里不画方块的空位:透明占位,不显示任何内容 */
+.cell-empty {
+  width: var(--cell);
+  height: var(--cell);
+  background: none;
+  box-shadow: none;
+}
+
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--cell) * 0.55);
+  line-height: 1;
+  color: #222;
+  background: #fff;               /* 已给出格:白底 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  cursor: pointer;                /* 第 4a 步:格子可点 */
+}
+
+.cell.blank { background: #d9d9d9; }   /* 空格:浅灰底 */
+.cell.done  { background: #8fc98f; }   /* 已完成成语:绿底 */
+.cell.selected { border: 3px solid #c0392b; }  /* 选中样式(第 4 步才使用) */
+
+/* ---------- 三个圆形按钮 ---------- */
+#actions {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin: 8px 0 20px;
+}
+
+.action-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #2f4f5f;            /* 黛青 */
+  color: #f5efe0;                 /* 米黄 */
+  border: 2px solid #f5efe0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: inherit;           /* 第 4b 步:改成 <button>,继承宋体 */
+  cursor: pointer;
+}
+
+/* 金币不足:视觉变灰(仍可点击,点击弹"金币不足"轻提示) */
+.action-btn.disabled {
+  background: #9aa5ad;
+  border-color: #d8c9a3;
+  color: #e8e2d4;
+  cursor: default;
+}
+
+.action-label { font-size: 15px; }
+.action-cost  { font-size: 11px; color: #f0c040; }
+
+/* ---------- 候选字区 ---------- */
+#pool {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 340px;
+  padding: 0 12px;
+}
+
+.pool-tile {
+  width: calc(var(--cell) * 0.8);
+  height: calc(var(--cell) * 0.8);
+  border-radius: 6px;
+  background: #f0e6c8;            /* 米黄底 */
+  color: #2f4f5f;                 /* 深色字 */
+  border: 1px solid #d8c9a3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--cell) * 0.44);
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;                /* 第 4a 步:候选字可点 */
+}
+
+/* 已用掉的候选字:灰底、文字变淡、不可再点 */
+.pool-tile.used {
+  background: #e8e8e8;
+  color: #b0b0b0;
+  border-color: #d0d0d0;
+  cursor: default;
+}
+
+/* 错字抖动:水平来回 ±6px,约 0.35 秒 */
+@keyframes shake-x {
+  0%, 100% { transform: translateX(0); }
+  12.5%    { transform: translateX(-6px); }
+  25%      { transform: translateX(6px); }
+  37.5%    { transform: translateX(-6px); }
+  50%      { transform: translateX(6px); }
+  62.5%    { transform: translateX(-6px); }
+  75%      { transform: translateX(6px); }
+  87.5%    { transform: translateX(-6px); }
+}
+
+.pool-tile.shake {
+  animation: shake-x 0.35s linear;
+}
+
+/* ---------- 错误提示 ---------- */
+#load-error {
+  color: #c0392b;
+  font-size: 14px;
+  padding: 12px;
+  text-align: center;
+}
+
+/* ---------- 轻提示(toast) ---------- */
+#toast-container {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 40px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;           /* 小条不挡点击 */
+  z-index: 50;
+}
+
+.toast {
+  background: #2f4f5f;            /* 黛青深色小条 */
+  color: #f5efe0;                 /* 米黄字 */
+  padding: 8px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.meaning-item { margin-bottom: 12px; }
+.meaning-word {
+  font-size: 18px;
+  font-weight: bold;
+  color: #c0392b;                 /* 朱红 */
+  margin-bottom: 4px;
+}
+.meaning-text { font-size: 14px; color: #333; }
+
+/* ---------- 通关弹窗(第 4c 步):遮罩/面板样式并入下方第 5a 步的并列选择器组 ---------- */
+.win-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #2f4f5f;                 /* 黛青 */
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.win-reward {
+  font-size: 16px;
+  font-weight: bold;
+  color: #c0392b;                 /* 朱红 */
+  text-align: center;
+  margin: 4px 0 12px;
+}
+
+.meaning-close {
+  display: block;
+  margin: 4px auto 0;
+  padding: 8px 24px;
+  background: #2f4f5f;            /* 黛青 */
+  color: #f5efe0;                 /* 米黄 */
+  border: 1px solid #2f4f5f;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* ---------- 弹窗(释义 / 通关 / 设置):三个遮罩+面板共用同一组样式 ---------- */
+/* 第 5a 步:把 #meaning-overlay/#meaning-panel、#win-overlay/#win-panel、
+   #settings-overlay/#settings-panel 的选择器并列,一份 CSS 三处复用,不复制规则。 */
+#meaning-overlay,
+#settings-overlay,
+#win-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(47, 79, 95, 0.55);   /* 黛青半透明遮罩 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+#meaning-overlay[hidden],
+#settings-overlay[hidden],
+#win-overlay[hidden] { display: none; }  /* hidden 属性优先于上面的 display */
+
+#meaning-panel,
+#settings-panel,
+#win-panel {
+  background: #f5efe0;            /* 米黄 */
+  border: 2px solid #2f4f5f;      /* 黛青 */
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+.settings-label { font-size: 15px; color: #333; }
+
+/* 简体/繁體按钮:未选中 = 米黄底黛青字;选中(.active) = 黛青底米黄字 */
+.script-btn {
+  padding: 8px 16px;
+  background: #f5efe0;            /* 米黄底 */
+  color: #2f4f5f;                 /* 黛青字 */
+  border: 1px solid #2f4f5f;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.script-btn.active {
+  background: #2f4f5f;            /* 黛青底 */
+  color: #f5efe0;                 /* 米黄字 */
+}
+
