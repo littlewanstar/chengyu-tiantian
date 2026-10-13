@@ -706,6 +706,18 @@
     }
     panel.appendChild(ladder);
 
+    var vb = el('button', 'checkin-claim');  // 复用绿色按钮样式(第 D1 步)
+    vb.type = 'button';
+    vb.textContent = '成语册(' + vocab.length + ')';
+    vb.addEventListener('click', openVocabPanel);          // 每次重建,绑在当前按钮上
+    panel.appendChild(vb);
+
+    var gb = el('button', 'checkin-claim');  // 复用绿色按钮样式(第 D2 步)
+    gb.type = 'button';
+    gb.textContent = '宾客(' + guestsUnlocked().length + '/' + (window.GUESTS ? window.GUESTS.length : 0) + ')';
+    gb.addEventListener('click', openGuestsPanel);         // 每次重建,绑在当前按钮上
+    panel.appendChild(gb);
+
     var close = el('button', 'meaning-close');  // 复用关闭按钮样式
     close.type = 'button';
     close.textContent = '关闭';
@@ -715,6 +727,105 @@
     document.getElementById('settings-overlay').hidden = false;
   }
   window.__openProgress = openProgressPanel;
+
+  // ---------- 成语册面板(第 D1 步):复用 #settings-overlay / #settings-panel,每次重建内容 ----------
+  function openVocabPanel() {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+
+    var h = el('div', 'win-title');
+    h.textContent = '成语册';
+    panel.appendChild(h);
+
+    var cnt = el('div', 'vocab-count');
+    cnt.textContent = '已学 ' + vocab.length + ' 条成语';
+    panel.appendChild(cnt);
+
+    if (vocab.length === 0) {
+      var empty = el('div', 'vocab-empty');
+      empty.textContent = '通关后,学到的成语会收在这里';
+      panel.appendChild(empty);
+    } else {
+      var list = el('div', 'vocab-list');
+      for (var i = vocab.length - 1; i >= 0; i--) {   // 最近学到的在前(vocab 倒序)
+        var info = vocabInfoOf(vocab[i]);
+        if (!info) continue;
+        var item = el('div', 'vocab-item');
+        var word = el('div', 'vocab-word');
+        word.textContent = (script === 't' ? info.t : info.s);
+        item.appendChild(word);
+        var mean = el('div', 'vocab-meaning');
+        mean.textContent = info.meaning;
+        item.appendChild(mean);
+        list.appendChild(item);
+      }
+      panel.appendChild(list);
+    }
+
+    var back = el('button', 'meaning-close');  // 复用关闭按钮样式
+    back.type = 'button';
+    back.textContent = '返回';
+    back.addEventListener('click', openProgressPanel);   // 每次重建,绑在当前按钮上
+    panel.appendChild(back);
+
+    document.getElementById('settings-overlay').hidden = false;
+  }
+  window.__openVocab = openVocabPanel;
+
+  // ---------- 宾客图鉴(第 D2 步):复用 #settings-overlay / #settings-panel,每次重建内容 ----------
+  function guestsUnlocked() {
+    if (!window.GUESTS) return [];
+    var c = rankInfo().count;
+    var out = [];
+    for (var i = 0; i < window.GUESTS.length; i++) {
+      if (window.GUESTS[i].need <= c) out.push(window.GUESTS[i]);
+    }
+    return out;
+  }
+
+  function openGuestsPanel() {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+
+    var h = el('div', 'win-title');
+    h.textContent = '宾客';
+    panel.appendChild(h);
+
+    var all = window.GUESTS || [];
+    var unlockedSet = guestsUnlocked();
+
+    var cnt = el('div', 'guest-count');
+    cnt.textContent = '已结识 ' + unlockedSet.length + ' / ' + all.length + ' 位';
+    panel.appendChild(cnt);
+
+    var grid = el('div', 'guest-grid');
+    for (var i = 0; i < all.length; i++) {
+      var g = all[i];
+      var isUnlocked = g.need <= rankInfo().count;
+      var card = el('div', 'guest-card' + (isUnlocked ? ' unlocked' : ' locked'));
+      var fig = el('div', 'guest-figure');
+      fig.innerHTML = g.svg;                     // 静态代码,非用户输入,可用 innerHTML
+      card.appendChild(fig);
+      var name = el('div', 'guest-name');
+      name.textContent = isUnlocked ? g.name : '???';
+      card.appendChild(name);
+      var desc = el('div', 'guest-desc');
+      desc.textContent = isUnlocked ? g.desc : ('通关 ' + g.need + ' 关后来访');
+      card.appendChild(desc);
+      grid.appendChild(card);
+    }
+    panel.appendChild(grid);
+
+    var back = el('button', 'meaning-close');  // 复用关闭按钮样式
+    back.type = 'button';
+    back.textContent = '返回';
+    back.addEventListener('click', openProgressPanel);   // 每次重建,绑在当前按钮上
+    panel.appendChild(back);
+
+    document.getElementById('settings-overlay').hidden = false;
+  }
+  window.__openGuests = openGuestsPanel;
+  window.__guestsUnlocked = function () { return guestsUnlocked().map(function (g) { return g.name; }); };
 
   // 第 A2b 步:通关庆祝(撒花 + 金币滚动 + 飘字 + 延迟弹窗)
   function celebrate(reward, oldCoins) {
@@ -766,6 +877,90 @@
     setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 1300);
   }
 
+  // ---------- 成语册(第 D1 步) ----------
+  var VOCAB_KEY = 'chengyu-tiantian-vocab';
+  var vocab = [];   // 已学成语(简体字符串数组,按学会的先后顺序,不重复)
+  var vocabIndex = {};   // s -> {s, t, meaning}(loadVocab 里从 levels 预建缓存)
+
+  // 从存档读成语册。迁移:VOCAB_KEY 不存在(老玩家)时,按 cleared 升序把每个
+  // 已通关关卡的全部 words.s 依次加入(去重)并立即写回;VOCAB_KEY 存在但坏了
+  // (解析失败/不是对象)则返回 [],不迁移、不覆盖。调用前提:levels 与 cleared 已加载。
+  function loadVocab() {
+    var known = {};   // 全部 levels 里真实存在的 s 的集合
+    vocabIndex = {};
+    for (var i = 0; i < levels.length; i++) {
+      var ws = levels[i].words || [];
+      for (var j = 0; j < ws.length; j++) {
+        if (typeof ws[j].s === 'string' && !(ws[j].s in vocabIndex)) {
+          known[ws[j].s] = true;
+          vocabIndex[ws[j].s] = { s: ws[j].s, t: ws[j].t, meaning: ws[j].meaning };
+        }
+      }
+    }
+    var raw = null;
+    try { raw = localStorage.getItem(VOCAB_KEY); } catch (e) { return []; }
+    if (raw === null) {                                   // 老玩家:从 cleared 迁移
+      var arr = [];
+      var seen = {};
+      var cl = cleared.slice().sort(function (a, b) { return a - b; });
+      for (var k = 0; k < cl.length; k++) {
+        var lv = levels[cl[k]];
+        if (!lv) continue;
+        var w2 = lv.words || [];
+        for (var m = 0; m < w2.length; m++) {
+          var s2 = w2[m].s;
+          if (typeof s2 === 'string' && known[s2] && !seen[s2]) {
+            seen[s2] = true;
+            arr.push(s2);
+          }
+        }
+      }
+      vocab = arr;
+      saveVocab();                                        // 立即写回 VOCAB_KEY
+      return vocab.slice();
+    }
+    try {
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== 'object' || !Array.isArray(o.words)) return [];
+      var out = [];
+      var seen2 = {};
+      for (var n = 0; n < o.words.length; n++) {
+        var w3 = o.words[n];
+        if (typeof w3 === 'string' && known[w3] && !seen2[w3]) {
+          seen2[w3] = true;
+          out.push(w3);
+        }
+      }
+      vocab = out;                                        // 保持原顺序
+      return out.slice();
+    } catch (e) { return []; }                            // 坏了:空记录,不迁移、不覆盖
+  }
+
+  function saveVocab() {
+    try { localStorage.setItem(VOCAB_KEY, JSON.stringify({ words: vocab })); } catch (e) {}
+  }
+
+  // 通关时记录:遍历本关 words,不在 vocab 里的依次 push(去重),有新增才写盘。
+  function addVocabFromLevel(index) {
+    if (!levels[index]) return;
+    var ws = levels[index].words || [];
+    var added = false;
+    for (var i = 0; i < ws.length; i++) {
+      var s = ws[i].s;
+      if (typeof s === 'string' && vocab.indexOf(s) === -1) {
+        vocab.push(s);
+        added = true;
+      }
+    }
+    if (added) saveVocab();
+  }
+
+  // 查成语信息:返回 {s, t, meaning},找不到返回 null。
+  function vocabInfoOf(s) {
+    return (s in vocabIndex) ? vocabIndex[s] : null;
+  }
+  window.__getVocab = function () { return vocab.slice(); };
+
   // 通关检查:每次"填入成功"之后、render 之后调用。奖励只发一次(rewarded 防重复)。
   function checkWin() {
     var game = window.__game;
@@ -785,10 +980,14 @@
     // 通关后未点"下一关"就刷新 → 进下一关,不会重复领奖励。
     // 第 C2a 步:通关前记下旧称号/府邸,markCleared 后对比,变化则生成晋升提示
     var oldRank = rankInfo().name, oldHouse = houseInfo().name;
+    var oldGuests = guestsUnlocked().length;     // 第 D2 步:通关前记下已解锁宾客数
     markCleared(currentIndex);
+    addVocabFromLevel(currentIndex);              // 第 D1 步:通关把本关成语收进成语册
+    var newGuests = guestsUnlocked().length;      // 第 D2 步:通关后已解锁宾客数
     var promoParts = [];
     if (rankInfo().name !== oldRank) promoParts.push('晋升:' + rankInfo().name);
     if (houseInfo().name !== oldHouse) promoParts.push('府邸升级:' + houseInfo().name);
+    if (newGuests > oldGuests) promoParts.push('宾客来访:' + guestsUnlocked()[newGuests - 1].name);  // 第 D2 步:一次通关最多新解锁一位
     pendingPromo = promoParts.join(' · ');
     save(currentIndex >= levels.length - 1 ? 0 : currentIndex + 1);
     celebrate(reward, oldCoins);
@@ -1020,6 +1219,7 @@
         levels = Game.loadLevels(json);           // 提到外层变量(第 4c 步规则 2)
         var saved = load();                       // 启动先读存档
         cleared = loadProgress();                 // 第 C1 步:通关记录(levels 已加载,可安全读/迁移)
+        vocab = loadVocab();                        // 第 D1 步:成语册(cleared 已加载,可安全读/迁移)
         currentIndex = saved.level;
         coins = saved.coins;
         script = saved.script;                    // 读存档里的 's'/'t'(第 5a 步起可切换)

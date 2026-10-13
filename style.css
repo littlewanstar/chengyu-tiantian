@@ -721,3 +721,21 @@ main {
 .progress-step { padding: 3px 9px; border-radius: 12px; font-size: 13px; background: #ece5d4; color: #9a917c; }
 .progress-step.done { background: #cfe3d6; color: #2f6a4a; }
 .progress-step.current { background: #d9a73a; color: #fff; font-weight: bold; }
+
+/* ===== 第 D1 步:成语册 ===== */
+.vocab-count { text-align: center; font-size: 14px; color: #6b6b6b; margin-bottom: 8px; }
+.vocab-empty { text-align: center; font-size: 14px; color: #8a8270; padding: 24px 8px; }
+.vocab-list { max-height: 46vh; overflow-y: auto; margin-bottom: 10px; padding-right: 2px; -webkit-overflow-scrolling: touch; }
+.vocab-item { padding: 8px 4px; border-bottom: 1px solid #e4dccb; }
+.vocab-word { font-size: 18px; font-weight: bold; color: var(--ink, #1c2a36); letter-spacing: 2px; }
+.vocab-meaning { font-size: 13px; color: #555; margin-top: 2px; line-height: 1.5; }
+
+/* ===== 第 D2 步:宾客图鉴 ===== */
+.guest-count { text-align: center; font-size: 14px; color: #6b6b6b; margin-bottom: 8px; }
+.guest-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 38vh; overflow-y: auto; margin-bottom: 10px; -webkit-overflow-scrolling: touch; }
+.guest-card { text-align: center; padding: 6px 2px; border-radius: 10px; background: #f3ecda; }
+.guest-figure svg { width: 56px; height: auto; display: block; margin: 0 auto; }
+.guest-card.locked .guest-figure svg { filter: brightness(0) opacity(0.35); }
+.guest-name { font-size: 14px; font-weight: bold; color: var(--ink, #1c2a36); margin-top: 2px; }
+.guest-desc { font-size: 11px; color: #7a7260; line-height: 1.35; margin-top: 2px; padding: 0 2px; }
+.guest-card.locked .guest-name { color: #9a917c; }
