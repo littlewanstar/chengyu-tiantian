@@ -461,3 +461,177 @@ main {
   cursor: default;
 }
 
+
+/* ===== 第 A1a 步:水墨书院主题 ===== */
+/* 色板变量 */
+:root {
+  --ink: #2f4f5f;
+  --paper: #f5efe0;
+  --gold: #d9a73a;
+  --gold-deep: #a97c1f;
+  --jade: #5fae6b;
+  --cinnabar: #c8452f;
+  --slate: #b9c4c8;
+  --sky: #cfdde4;
+}
+
+/* 游戏页背景:青海波纹(两层半透明白色圆环,40px 20px 平铺) */
+#app {
+  background-color: #9fb6c6;
+  background-image:
+    radial-gradient(circle at 50% 100%, rgba(255,255,255,.18) 18%, transparent 19%),
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.18) 18%, transparent 19%);
+  background-size: 40px 20px;
+}
+
+/* 顶栏:黛青渐变 + 金色下沿 */
+#topbar {
+  background: linear-gradient(#3a6070, #2f4f5f);
+  box-shadow: 0 2px 0 var(--gold), 0 4px 8px rgba(0,0,0,.25);
+}
+
+/* 关卡标题:鎏金牌匾 */
+#level-title {
+  background: linear-gradient(#f3d27a, #d9a73a);
+  color: #4a3410;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 0 0 2px var(--gold-deep);
+  text-shadow: 0 1px 0 rgba(255,255,255,.4);
+}
+
+/* 金币计数:深色胶囊 */
+#coins {
+  background: rgba(0,0,0,.28);
+  color: #ffe28a;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.4);
+}
+
+/* 金币圆点:径向高光 */
+.coin-dot {
+  background: radial-gradient(circle at 35% 30%, #ffe28a, #d9a73a 70%);
+  box-shadow: 0 0 0 2px var(--gold-deep);
+}
+
+/* ===== 第 A1b 步:棋盘与字块 ===== */
+#board {
+  background: rgba(207,221,228,.88);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 4px 10px rgba(0,0,0,.18);
+}
+.cell {
+  background: linear-gradient(#fffdf5, #efe6cc);
+  color: #2b2b2b;
+  border-radius: 6px;
+  box-shadow: 0 3px 0 #b9ad8a, inset 0 1px 0 rgba(255,255,255,.9);
+}
+.cell.blank {
+  background: var(--slate);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,.3);
+  color: #2b2b2b;
+}
+.cell.done {
+  background: linear-gradient(#7fc98a, #4f9d5c);
+  color: #fff;
+  box-shadow: 0 3px 0 #3c7a47, inset 0 1px 0 rgba(255,255,255,.4);
+  text-shadow: 0 1px 1px rgba(0,0,0,.25);
+}
+.cell.selected {
+  outline: 3px solid var(--cinnabar);
+  outline-offset: -3px;
+  box-shadow: 0 0 10px rgba(200,69,47,.6), inset 0 2px 5px rgba(0,0,0,.25);
+}
+.pool-tile {
+  background: linear-gradient(#fffdf5, #efe6cc);
+  color: #2f4f5f;
+  border-color: #d8c9a3;
+  border-radius: 8px;
+  box-shadow: 0 4px 0 #a99d78, 0 6px 8px rgba(0,0,0,.2);
+  transition: transform .08s;
+}
+.pool-tile:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #a99d78;
+}
+.pool-tile.used {
+  background: #d9d9d9;
+  color: #aaa;
+  box-shadow: none;
+}
+.action-btn {
+  background: radial-gradient(circle at 35% 30%, #4a6e80, #2f4f5f 70%);
+  color: #f5efe0;
+  box-shadow: 0 0 0 2px var(--gold), 0 3px 6px rgba(0,0,0,.3);
+}
+.action-btn:active {
+  transform: translateY(2px);
+}
+.action-btn.disabled {
+  opacity: .55;
+  box-shadow: 0 0 0 2px #888;
+}
+
+/* ===== 第 A1c 步:弹窗与底纹 ===== */
+#meaning-panel,
+#win-panel,
+#settings-panel {
+  background: linear-gradient(#fffdf5, #f3ead0);
+  border-radius: 14px;
+  box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--gold-deep), 0 10px 28px rgba(0,0,0,.4);
+}
+
+#meaning-overlay,
+#win-overlay,
+#settings-overlay {
+  background: rgba(20,35,45,.55);
+}
+
+.win-title {
+  color: #4a3410;
+  text-shadow: 0 1px 0 rgba(255,255,255,.6);
+}
+
+.meaning-close {
+  background: linear-gradient(#7fc98a, #4f9d5c);
+  color: #fff;
+  border-color: #3c7a47;
+  border-radius: 999px;
+  box-shadow: 0 3px 0 #3c7a47, 0 5px 8px rgba(0,0,0,.2);
+  text-shadow: 0 1px 1px rgba(0,0,0,.25);
+}
+
+.meaning-close:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #3c7a47;
+}
+
+.script-btn {
+  background: linear-gradient(#fffdf5, #efe6cc);
+  color: #2f4f5f;
+  border-color: #d8c9a3;
+  box-shadow: 0 2px 0 #b9ad8a;
+}
+
+.script-btn.active {
+  background: linear-gradient(#7fc98a, #4f9d5c);
+  color: #fff;
+  border-color: #3c7a47;
+}
+
+.unlock-all-btn {
+  background: linear-gradient(#f3d27a, #d9a73a);
+  color: #4a3410;
+  border-color: #a97c1f;
+  box-shadow: 0 3px 0 #a97c1f;
+}
+
+.unlock-all-btn:disabled {
+  background: #d8d8d8;
+  color: #999;
+  box-shadow: none;
+}
+
+#app {
+  background-color: #9fb6c6;
+  background-image: radial-gradient(circle at 50% 0, transparent 0, transparent 9px, rgba(255,255,255,.22) 9px, rgba(255,255,255,.22) 11px, transparent 11px), radial-gradient(circle at 50% 0, transparent 0, transparent 9px, rgba(255,255,255,.22) 9px, rgba(255,255,255,.22) 11px, transparent 11px);
+}
