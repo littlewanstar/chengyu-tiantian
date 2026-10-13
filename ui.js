@@ -16,6 +16,10 @@
   var script = DEFAULT_SCRIPT;        // 's'/'t';第 5a 步起可在设置面板里切换
   var rewarded = false;               // 防重复:同一关只发一次通关奖励,进入新关时清零
   var unlocked = 0;                   // 第 5b 步:已解锁的最大关卡序号(从 0 开始),序号 <= unlocked 的关卡可进入
+  var prevFilled = {};                // 第 A2a 步:上一次 render 时每个格子是否已有字,键 'r,c' → true
+  var prevDone = {};                  // 第 A2a 步:上一次 render 时属于已完成词的格子,键 'r,c' → true
+  var lastLevelId = null;             // 第 A2a 步:上一次 render 的关卡 id,换关时不播放动画
+  var pendingPromo = '';              // 第 C2a 步:通关时若称号/府邸变化,存晋升提示文案,弹窗出现时展示一次后置空
 
   function el(tag, className) {
     var node = document.createElement(tag);
@@ -32,6 +36,59 @@
     app.appendChild(p);
   }
 
+  // ---------- 音效(第 A3a 步):WebAudio 合成,不用音频文件 ----------
+  var SOUND_KEY = 'chengyu-tiantian-sound';
+  var soundOn = true;
+  try { if (localStorage.getItem(SOUND_KEY) === 'off') soundOn = false; } catch (e) {}
+  var audioCtx = null;
+  window.__sfxLog = [];            // 测试用:记录每次请求的音效名(不管开关是否打开,只记录请求;最多保留 60 条)
+
+  function setSoundOn(v) {
+    soundOn = !!v;
+    try { localStorage.setItem(SOUND_KEY, soundOn ? 'on' : 'off'); } catch (e) {}
+  }
+  function getAudio() {
+    if (audioCtx) return audioCtx;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    } catch (e) { audioCtx = null; }
+    return audioCtx;
+  }
+  // 播放一个音:freq 频率,start 相对现在的秒数,dur 时长秒,type 波形,vol 音量(0~0.2)
+  function tone(freq, start, dur, type, vol) {
+    var ctx = getAudio();
+    if (!ctx) return;
+    try {
+      if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+      var t0 = ctx.currentTime + start;
+      var osc = ctx.createOscillator();
+      var g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    } catch (e) { /* 忽略 */ }
+  }
+  function playSound(name) {
+    window.__sfxLog.push(name);
+    if (window.__sfxLog.length > 60) window.__sfxLog.shift();
+    if (!soundOn) return;
+    try {
+      if (name === 'select')       { tone(880, 0, 0.05, 'sine', 0.08); }
+      else if (name === 'correct') { tone(660, 0, 0.09, 'triangle', 0.12); tone(990, 0.09, 0.12, 'triangle', 0.12); }
+      else if (name === 'wrong')   { tone(170, 0, 0.18, 'sawtooth', 0.07); tone(125, 0.1, 0.2, 'sawtooth', 0.07); }
+      else if (name === 'word')    { tone(523, 0, 0.12, 'triangle', 0.13); tone(659, 0.11, 0.12, 'triangle', 0.13); tone(784, 0.22, 0.2, 'triangle', 0.13); }
+      else if (name === 'hint')    { tone(1200, 0, 0.08, 'sine', 0.09); tone(1600, 0.08, 0.12, 'sine', 0.09); }
+      else if (name === 'win')     { tone(523, 0, 0.14, 'triangle', 0.14); tone(659, 0.13, 0.14, 'triangle', 0.14); tone(784, 0.26, 0.14, 'triangle', 0.14); tone(1047, 0.39, 0.4, 'triangle', 0.15); }
+    } catch (e) { /* 忽略 */ }
+  }
+  window.__setSound = setSoundOn;
+  window.__getSound = function () { return soundOn; };
+
   // 轻提示:屏幕下方居中的深色小条,约 1.5 秒后自动消失;新的替换旧的。
   function showToast(msg) {
     var container = document.getElementById('toast-container');
@@ -43,6 +100,167 @@
       if (container.firstChild === t) container.textContent = '';
     }, 1500);
   }
+
+  // ---------- 每日签到(第 B2a 步) ----------
+  var CHECKIN_KEY = 'chengyu-tiantian-checkin';
+  var CHECKIN_REWARDS = [20, 30, 40, 50, 60, 80, 150];   // 第 1~7 天奖励
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function todayStr() {
+    if (window.__today) return window.__today;            // 测试用:可由 window.__setToday('2026-10-14') 覆盖
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  function dayDiff(a, b) {                                 // b 比 a 晚几天(整数,可为负)
+    var pa = a.split('-'), pb = b.split('-');
+    var ta = Date.UTC(+pa[0], +pa[1] - 1, +pa[2]), tb = Date.UTC(+pb[0], +pb[1] - 1, +pb[2]);
+    return Math.round((tb - ta) / 86400000);
+  }
+  function loadCheckin() {
+    var s = { last: null, streak: 0 };
+    try {
+      var raw = localStorage.getItem(CHECKIN_KEY);
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (o && typeof o === 'object' &&
+            typeof o.last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.last) &&
+            typeof o.streak === 'number' && Number.isInteger(o.streak) && o.streak >= 1 && o.streak <= 7) {
+          s.last = o.last; s.streak = o.streak;
+        }
+      }
+    } catch (e) { /* 坏数据:用默认 */ }
+    return s;
+  }
+  // 返回 { claimedToday: bool, day: 1..7, reward: number }
+  //   claimedToday 为 true 时,day 是"今天已领的是第几天";否则 day 是"今天可领的是第几天"。
+  function checkinStatus() {
+    var s = loadCheckin();
+    var today = todayStr();
+    if (s.last !== null) {
+      var diff = dayDiff(s.last, today);
+      if (diff <= 0) {                                      // 今天已领(diff===0);时钟被往回调(diff<0)也视为已领,防刷
+        return { claimedToday: true, day: s.streak, reward: CHECKIN_REWARDS[s.streak - 1] };
+      }
+      if (diff === 1) {                                     // 连续:接着往下一天;满 7 天后回到第 1 天
+        var nd = s.streak >= 7 ? 1 : s.streak + 1;
+        return { claimedToday: false, day: nd, reward: CHECKIN_REWARDS[nd - 1] };
+      }
+    }
+    return { claimedToday: false, day: 1, reward: CHECKIN_REWARDS[0] };   // 首次或断签:从第 1 天重新开始
+  }
+  // 领取:成功返回 { day, reward },今天已领返回 null。
+  function claimCheckin() {
+    var st = checkinStatus();
+    if (st.claimedToday) return null;
+    coins += st.reward;
+    try { localStorage.setItem(CHECKIN_KEY, JSON.stringify({ last: todayStr(), streak: st.day })); } catch (e) {}
+    save();                                                 // 金币变化后存游戏存档
+    return { day: st.day, reward: st.reward };
+  }
+  window.__setToday = function (s) { window.__today = s || null; };
+  window.__checkinStatus = checkinStatus;
+
+  // ---------- 通关进度与等级(第 C1 步) ----------
+  var PROGRESS_KEY = 'chengyu-tiantian-progress';
+  var RANKS = [
+    { min: 0, name: '学童' },
+    { min: 2, name: '书生' },
+    { min: 15, name: '儒生' },
+    { min: 40, name: '秀才' },
+    { min: 70, name: '举人' },
+    { min: 100, name: '状元' }
+  ];
+  var HOUSES = [
+    { min: 0, name: '草屋' },
+    { min: 5, name: '泥屋' },
+    { min: 25, name: '木屋' },
+    { min: 60, name: '大木屋' },
+    { min: 100, name: '书院' }
+  ];
+
+  var cleared = [];   // 已通关关卡序号的数组(不重复的整数,按从小到大排序)
+
+  // 从存档读通关记录。迁移:PROGRESS_KEY 不存在(老玩家)时,用主存档的当前关序号
+  // level 生成 [0,1,...,level-1] 并立即写回;PROGRESS_KEY 存在但坏了(解析失败/
+  // 不是对象)则返回 [],不迁移。调用前提:levels 已加载(见 start() 里 load() 之后)。
+  function loadProgress() {
+    var raw = null;
+    try { raw = localStorage.getItem(PROGRESS_KEY); } catch (e) { return []; }
+    if (raw === null) {                                   // 老玩家:从主存档迁移
+      var arr = [];
+      try {
+        var o = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+        if (o && typeof o.level === 'number' && Number.isInteger(o.level) &&
+            o.level >= 0 && o.level < levels.length) {
+          for (var i = 0; i < o.level; i++) arr.push(i);  // 已通关的关数就是 level
+        }
+      } catch (e) { /* 主存档也坏了:空记录 */ }
+      cleared = arr;
+      saveProgress();                                     // 立即写回 PROGRESS_KEY
+      return cleared.slice();
+    }
+    try {
+      var p = JSON.parse(raw);
+      if (!p || typeof p !== 'object' || !Array.isArray(p.cleared)) return [];
+      var seen = {};
+      var out = [];
+      for (var j = 0; j < p.cleared.length; j++) {
+        var n = p.cleared[j];
+        if (Number.isInteger(n) && n >= 0 && n < levels.length && !seen[n]) {
+          seen[n] = true;
+          out.push(n);
+        }
+      }
+      out.sort(function (a, b) { return a - b; });        // 去重后升序排序
+      cleared = out;
+      return out.slice();
+    } catch (e) { return []; }                            // 坏了:空记录,不迁移
+  }
+
+  function saveProgress() {
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: cleared })); } catch (e) {}
+  }
+
+  // 通关时记录:合法整数且不在 cleared 里才 push(去重),push 后重排升序并写盘。
+  function markCleared(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= levels.length) return;
+    if (cleared.indexOf(index) !== -1) return;            // 已记录过:不重复
+    cleared.push(index);
+    cleared.sort(function (a, b) { return a - b; });
+    saveProgress();
+  }
+
+  // 按"已通关的不同关卡数"取等级:从后往前找第一个 min <= count 的档。
+  function levelFromTable(table, count) {
+    for (var i = table.length - 1; i >= 0; i--) {
+      if (count >= table[i].min) return table[i];
+    }
+    return table[0];
+  }
+  function rankInfo() {
+    var c = cleared.length;
+    var cur = levelFromTable(RANKS, c);
+    var next = null;
+    for (var i = 0; i < RANKS.length; i++) {
+      if (RANKS[i].min > c) { next = RANKS[i]; break; }
+    }
+    return { name: cur.name, count: c, nextName: next ? next.name : null,
+             nextMin: next ? next.min : null };
+  }
+  function houseInfo() {
+    var c = cleared.length;
+    var cur = levelFromTable(HOUSES, c);
+    var next = null;
+    for (var i = 0; i < HOUSES.length; i++) {
+      if (HOUSES[i].min > c) { next = HOUSES[i]; break; }
+    }
+    return { name: cur.name, count: c, nextName: next ? next.name : null,
+             nextMin: next ? next.min : null };
+  }
+
+  window.__markCleared = markCleared;
+  window.__rankInfo = rankInfo;
+  window.__houseInfo = houseInfo;
 
   // ---------- 存档(SPEC 第 6 节):所有读写包 try/catch,坏数据回默认值 ----------
   // levelOverride(第 5a 步):checkWin 发奖后传入"下一关"序号(最后一关传 0),
@@ -122,6 +340,7 @@
   // script 传 's'/'t'(第 5a 步起可切换);第 4 步起会反复调用,故每次先清空再重建。
   function render(game, script) {
     var level = game.level;
+    var animate = (lastLevelId === level.id);   // 第 A2a 步:换关(含首次)不播放动画
 
     // 顶栏:第 N 关 + 金币(金币来自 ui 里的 coins 变量)
     document.getElementById('level-title').textContent = '第 ' + level.id + ' 关';
@@ -163,6 +382,9 @@
         if (doneSet[r + ',' + c]) tile.classList.add('done');
         var sel = game.state.selected;
         if (sel && sel.r === r && sel.c === c) tile.classList.add('selected');
+        // 第 A2a 步:本次新出现的字弹跳;本次新变 done 的格子(含固定字)闪烁
+        if (ch !== null && !prevFilled[r + ',' + c] && animate) tile.classList.add('pop');
+        if (doneSet[r + ',' + c] && !prevDone[r + ',' + c] && animate) tile.classList.add('flash');
         board.appendChild(tile);
       }
     }
@@ -181,6 +403,18 @@
     // 余额不足时按钮视觉变灰(点击仍会弹"金币不足"提示)
     document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
     document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
+
+    // 第 A2a 步:用本次 render 结果重建 prevFilled/prevDone,记录本次关卡 id
+    prevFilled = {};
+    prevDone = {};
+    for (var rr = 0; rr < level.rows; rr++) {
+      for (var cc = 0; cc < level.cols; cc++) {
+        if (!cellMap[rr + ',' + cc]) continue;
+        if (game.display(rr, cc, script) !== null) prevFilled[rr + ',' + cc] = true;
+        if (doneSet[rr + ',' + cc]) prevDone[rr + ',' + cc] = true;
+      }
+    }
+    lastLevelId = level.id;
 
     // 第 7a 步:render 末尾(#pool/#actions 已渲染好)按可用高度计算 --cell
     fitBoard(game);
@@ -281,6 +515,29 @@
     });
     panel.appendChild(row);
 
+    // 第 A3b 步:音效开关行(复用 settings-row / script-btn 样式,事件直接绑在按钮上)
+    var soundRow = el('div', 'settings-row');
+    var onBtn, offBtn;                                         // forEach 内共享引用,点击时互相更新 active
+    var soundLabel = el('span', 'settings-label');
+    soundLabel.textContent = '音效:';
+    soundRow.appendChild(soundLabel);
+    [['on', true], ['off', false]].forEach(function (pair) {   // pair[0]:data-sound 值,pair[1]:对应 soundOn 值
+      var b = el('button', 'script-btn');
+      b.type = 'button';
+      b.setAttribute('data-sound', pair[0]);
+      b.textContent = pair[0] === 'on' ? '开' : '关';
+      if (soundOn === pair[1]) b.classList.add('active');      // 当前状态加 active
+      b.addEventListener('click', function () {                // 只更新这两个按钮的 active,不重建面板
+        setSoundOn(pair[1]);
+        onBtn.classList.toggle('active', soundOn);
+        offBtn.classList.toggle('active', !soundOn);
+        if (soundOn) playSound('correct');                     // 开启时试听;关闭时不播放
+      });
+      if (pair[0] === 'on') onBtn = b; else offBtn = b;
+      soundRow.appendChild(b);
+    });
+    panel.appendChild(soundRow);
+
     // 第 7b 步:解锁全部关卡按钮(独立一行,事件直接绑在按钮上,同字体按钮做法)
     var unlockRow = el('div', 'settings-row');
     var unlockBtn = el('button', 'unlock-all-btn');
@@ -312,6 +569,201 @@
 
   function closeSettingsPanel() {
     document.getElementById('settings-overlay').hidden = true;
+    if (!document.getElementById('home').hidden) renderHome();
+  }
+
+  // ---------- 每日签到面板(第 B2a 步):复用 #settings-overlay / #settings-panel,每次重建内容 ----------
+  function openCheckinPanel() {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+
+    var h = el('div', 'win-title');
+    h.textContent = '每日签到';
+    panel.appendChild(h);
+
+    var note = el('div', 'checkin-note');
+    note.textContent = '连续签到,第 7 天有大奖';
+    panel.appendChild(note);
+
+    var st = checkinStatus();
+    var doneUpTo = st.claimedToday ? st.day : st.day - 1;   // 已领到第几天(未领:可领前一天之前都算 done)
+
+    var grid = el('div', 'checkin-grid');
+    for (var i = 1; i <= 7; i++) {
+      var cell = el('div', 'checkin-cell');
+      if (i <= doneUpTo) cell.classList.add('done');
+      if (!st.claimedToday && i === st.day) cell.classList.add('today');
+      if (i === 7) cell.classList.add('big');
+      var d = el('div', 'checkin-day');
+      d.textContent = '第 ' + i + ' 天';
+      var rw = el('div', 'checkin-reward');
+      rw.textContent = '+' + CHECKIN_REWARDS[i - 1];
+      cell.appendChild(d);
+      cell.appendChild(rw);
+      grid.appendChild(cell);
+    }
+    panel.appendChild(grid);
+
+    var btn = el('button', 'checkin-claim');
+    btn.type = 'button';
+    if (st.claimedToday) {
+      btn.disabled = true;
+      btn.textContent = '今日已签到';
+    } else {
+      btn.textContent = '领取 +' + st.reward + ' 金币';
+      btn.addEventListener('click', function () {
+        var r = claimCheckin();
+        if (r) {
+          showToast('签到成功,获得 ' + r.reward + ' 金币');
+          playSound('word');
+          // 同步金币显示:首页可见则 renderHome() 重绘;否则更新游戏页金币数字
+          if (!document.getElementById('home').hidden) renderHome();
+          else document.getElementById('coins-num').textContent = String(coins);
+          openCheckinPanel();      // 重建面板(按钮变禁用,格子变 done)
+        }
+      });
+    }
+    panel.appendChild(btn);
+
+    var close = el('button', 'meaning-close');  // 复用关闭按钮样式
+    close.type = 'button';
+    close.textContent = '关闭';
+    close.addEventListener('click', closeSettingsPanel);   // 每次重建,绑在当前按钮上
+    panel.appendChild(close);
+
+    document.getElementById('settings-overlay').hidden = false;
+  }
+  window.__openCheckin = openCheckinPanel;
+
+  // ---------- 功名府邸面板(第 C2b 步):复用 #settings-overlay / #settings-panel,每次重建内容 ----------
+  function openProgressPanel() {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+
+    var h = el('div', 'win-title');
+    h.textContent = '功名府邸';
+    panel.appendChild(h);
+
+    var ri = rankInfo(), hiInfo = houseInfo();
+    var c = ri.count;
+
+    // 府邸插画:当前档位 SVG(HOUSE_SVG 是静态代码,非用户输入,可用 innerHTML)
+    var hi = 0;
+    for (var i = 0; i < HOUSES.length; i++) {
+      if (HOUSES[i].name === hiInfo.name) { hi = i; break; }
+    }
+    var box = el('div', 'progress-house');
+    box.innerHTML = (window.HOUSE_SVG && window.HOUSE_SVG[hi]) || '';
+    panel.appendChild(box);
+
+    var names = el('div', 'progress-names');
+    names.textContent = ri.name + ' · ' + hiInfo.name;
+    panel.appendChild(names);
+
+    var line = el('div', 'progress-line');
+    line.textContent = '已通关 ' + c + ' / ' + levels.length + ' 关';
+    panel.appendChild(line);
+
+    // 进度条行:cur=当前档(表里 min<=count 的最后一档),next=下一档;lo/hi 为两档 min
+    function barRow(table, info, topLabel) {
+      var cur = null, nxt = null;
+      for (var k = 0; k < table.length; k++) {
+        if (table[k].min <= c) cur = table[k];
+        else if (!nxt) nxt = table[k];
+      }
+      var row = el('div', 'progress-row');
+      var label = el('span', 'progress-label');
+      label.textContent = info.nextName
+        ? ('距「' + info.nextName + '」还需 ' + (info.nextMin - c) + ' 关')
+        : topLabel;
+      row.appendChild(label);
+      var bar = el('div', 'progress-bar');
+      var fill = el('div', 'progress-fill');
+      var pct;
+      if (!nxt) {
+        pct = 100;                                       // 已是最高档
+      } else {
+        pct = (c - cur.min) / (nxt.min - cur.min) * 100;
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+      }
+      fill.style.width = pct + '%';
+      bar.appendChild(fill);
+      row.appendChild(bar);
+      panel.appendChild(row);
+    }
+    barRow(RANKS, ri, '功名已至巅峰');
+    barRow(HOUSES, hiInfo, '府邸已至圆满');
+
+    // 功名阶梯列表
+    var ladder = el('div', 'progress-ladder');
+    for (var r = 0; r < RANKS.length; r++) {
+      var step = el('span', 'progress-step');
+      step.textContent = RANKS[r].min === 0 ? RANKS[r].name : (RANKS[r].name + '(' + RANKS[r].min + ')');
+      if (c >= RANKS[r].min) step.classList.add('done');
+      if (RANKS[r] === levelFromTable(RANKS, c)) step.classList.add('current');
+      ladder.appendChild(step);
+    }
+    panel.appendChild(ladder);
+
+    var close = el('button', 'meaning-close');  // 复用关闭按钮样式
+    close.type = 'button';
+    close.textContent = '关闭';
+    close.addEventListener('click', closeSettingsPanel);   // 每次重建,绑在当前按钮上
+    panel.appendChild(close);
+
+    document.getElementById('settings-overlay').hidden = false;
+  }
+  window.__openProgress = openProgressPanel;
+
+  // 第 A2b 步:通关庆祝(撒花 + 金币滚动 + 飘字 + 延迟弹窗)
+  function celebrate(reward, oldCoins) {
+    playSound('win');                                    // 第 A3a 步:通关音效(声音不属于视觉动效,放 reduce 判断之前)
+    // 尊重"减少动态效果"系统设置
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    rollCoins(oldCoins, coins, reduce ? 0 : 700);
+    if (reduce) return;
+    launchConfetti();
+    floatGain(reward);
+  }
+  function rollCoins(from, to, ms) {
+    var node = document.getElementById('coins-num');
+    if (!ms) { node.textContent = String(to); return; }
+    var start = null;
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min(1, (ts - start) / ms);
+      node.textContent = String(Math.round(from + (to - from) * p));
+      if (p < 1) requestAnimationFrame(step); else node.textContent = String(to);
+    }
+    requestAnimationFrame(step);
+  }
+  function launchConfetti() {
+    var box = document.createElement('div');
+    box.className = 'confetti';
+    var colors = ['#d9a73a', '#c8452f', '#5fae6b', '#2f4f5f', '#f3d27a', '#e0b090'];
+    for (var i = 0; i < 36; i++) {
+      var p = document.createElement('span');
+      p.className = 'confetti-piece';
+      p.style.left = (Math.random() * 100) + '%';
+      p.style.background = colors[i % colors.length];
+      p.style.animationDelay = (Math.random() * 0.35) + 's';
+      p.style.animationDuration = (1.4 + Math.random() * 0.9) + 's';
+      box.appendChild(p);
+    }
+    document.body.appendChild(box);
+    setTimeout(function () { if (box.parentNode) box.parentNode.removeChild(box); }, 2600);
+  }
+  function floatGain(reward) {
+    var anchor = document.getElementById('coins');
+    var r = anchor.getBoundingClientRect();
+    var t = document.createElement('div');
+    t.className = 'gain-float';
+    t.textContent = '+' + reward;
+    t.style.left = (r.left + r.width / 2) + 'px';
+    t.style.top = (r.bottom) + 'px';
+    document.body.appendChild(t);
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 1300);
   }
 
   // 通关检查:每次"填入成功"之后、render 之后调用。奖励只发一次(rewarded 防重复)。
@@ -322,14 +774,31 @@
     rewarded = true;
     var reward = 20;                              // SPEC 第 3 节第 8 条:基础 20
     if (game.state.errors === 0) reward += 10;    // 本关零错额外 +10
+    var oldCoins = coins;
     coins += reward;
     // 第 5b 步:通关解锁下一关(不超过最后一关);重新开始(最后一关通关回第 1 关)时不重置
     unlocked = Math.min(Math.max(unlocked, currentIndex + 1), levels.length - 1);
-    render(game, script);
+    // 第 A2b 步:不整盘重画(否则最后一格弹跳动画被抹掉),只更新金币相关 UI
+    document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
+    document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
     // 第 5a 步:发奖后存"下一关"序号(最后一关存 0),内存 currentIndex 不变;
     // 通关后未点"下一关"就刷新 → 进下一关,不会重复领奖励。
+    // 第 C2a 步:通关前记下旧称号/府邸,markCleared 后对比,变化则生成晋升提示
+    var oldRank = rankInfo().name, oldHouse = houseInfo().name;
+    markCleared(currentIndex);
+    var promoParts = [];
+    if (rankInfo().name !== oldRank) promoParts.push('晋升:' + rankInfo().name);
+    if (houseInfo().name !== oldHouse) promoParts.push('府邸升级:' + houseInfo().name);
+    pendingPromo = promoParts.join(' · ');
     save(currentIndex >= levels.length - 1 ? 0 : currentIndex + 1);
-    openWinModal(reward);
+    celebrate(reward, oldCoins);
+    setTimeout(function () {
+      // 第 A2b 步:弹窗前保护——玩家已离开游戏页则不弹窗
+      if (document.getElementById('app').hasAttribute('hidden')) { pendingPromo = ''; return; }
+      openWinModal(reward);
+      // 第 C2a 步:弹窗出现的同一时刻展示晋升提示(有则展示一次,随即置空)
+      if (pendingPromo) { showToast(pendingPromo); playSound('win'); pendingPromo = ''; }
+    }, 650);
   }
 
   // 跳到第 i 关(0 开始):建新游戏、render、存档。进入新关时 rewarded 清零。
@@ -346,36 +815,58 @@
     var home = document.getElementById('home');
     home.textContent = '';                      // 每次进入重绘全部内容
 
-    var h1 = el('div', 'home-title');
-    h1.textContent = '成语填填';
-    home.appendChild(h1);
-
-    var coinRow = el('div', 'home-coins');      // 金币行:小黄圆点 + 金币数(与 coins 同步)
+    // ===== 第 B1 步:场景首页 =====
+    var top = el('div', 'home-top');            // 顶栏:右侧金币胶囊(小黄圆点 + 金币数,与 coins 同步)
+    var coinRow = el('div', 'home-coins');
     coinRow.appendChild(el('span', 'coin-dot'));
     var num = el('span', 'home-coins-num');
     num.textContent = String(coins);
     coinRow.appendChild(num);
-    home.appendChild(coinRow);
+    top.appendChild(coinRow);
+    home.appendChild(top);
 
-    var cont = el('button', 'home-btn');        // 继续游戏:主标题 + 小字"第 N 关"
-    cont.type = 'button';
+    var h1 = el('div', 'home-title');           // 大标题
+    h1.textContent = '成语填填';
+    home.appendChild(h1);
+
+    var tag = el('div', 'home-tagline');        // 副标语
+    tag.textContent = '月下书院 · 以字会友';
+    home.appendChild(tag);
+
+    // 第 C2a 步:功名/府邸条(非按钮,不进 .home-btn 委托)
+    var rankline = el('div', 'home-rank');
+    rankline.textContent = rankInfo().name + ' · ' + houseInfo().name + ' · 已通关 ' + rankInfo().count + ' 关';
+    rankline.addEventListener('click', openProgressPanel);   // 第 C2b 步:点功名条打开面板
+    home.appendChild(rankline);
+
+    var spacer = el('div', 'home-spacer');      // 弹性撑开(CSS flex:1),把按钮压到画面下方地面
+    home.appendChild(spacer);
+
+    var start = el('button', 'home-btn home-start');   // 开始答题:主标题 + 小字"第 N 关"
+    start.type = 'button';
     var label = el('span', 'home-btn-label');
-    label.textContent = '继续游戏';
+    label.textContent = '开始答题';
     var sub = el('span', 'home-btn-sub');
     sub.textContent = '第 ' + levels[currentIndex].id + ' 关';   // N = 当前关卡 level.id
-    cont.appendChild(label);
-    cont.appendChild(sub);
-    home.appendChild(cont);
+    start.appendChild(label);
+    start.appendChild(sub);
+    home.appendChild(start);
 
-    var pick = el('button', 'home-btn');        // 选关
+    var row = el('div', 'home-row');            // 圆形按钮行:选关 + 设置
+    var pick = el('button', 'home-btn home-round');
     pick.type = 'button';
-    pick.textContent = '选关';
-    home.appendChild(pick);
-
-    var set = el('button', 'home-btn');         // 设置:调用已有的 openSettingsPanel()
+    pick.textContent = '选关';                  // textContent 恰好"选关"(点击委托靠它区分)
+    row.appendChild(pick);
+    var ci = el('button', 'home-btn home-round');
+    ci.type = 'button';
+    ci.textContent = '签到';
+    if (!checkinStatus().claimedToday) ci.classList.add('has-dot');
+    row.appendChild(ci);
+    var set = el('button', 'home-btn home-round');
     set.type = 'button';
-    set.textContent = '设置';
-    home.appendChild(set);
+    set.textContent = '设置';                   // textContent 恰好"设置"
+    row.appendChild(set);
+    home.appendChild(row);
   }
 
   function renderLevels() {
@@ -414,6 +905,7 @@
       var c = parseInt(tile.getAttribute('data-c'), 10);
       var game = window.__game;
       game.select(r, c);                                // 非空格/已填格由 game 返回 false,不选中
+      if (game.state.selected) playSound('select');    // 第 A3a 步:选中成功才播
       render(game, script);
     });
 
@@ -422,8 +914,15 @@
       if (!tile) return;
       var index = parseInt(tile.getAttribute('data-pool-index'), 10);
       var game = window.__game;
+      var beforeDone = game.completedWords().length;   // 第 A3a 步:区分'correct'和整词完成
       var res = game.input(index);
       render(game, script);
+      // 第 A3a 步:音效(通关那次只播 'win',由 checkWin→celebrate 负责,这里不播)
+      if (res.result === 'wrong') playSound('wrong');
+      if (res.result === 'correct' && !game.isComplete()) {
+        if (game.completedWords().length > beforeDone) playSound('word');
+        else playSound('correct');
+      }
       // 错字:渲染完后给对应候选字加 shake,动画结束(animationend)移除
       if (res.result === 'wrong') {
         var bad = document.querySelector('.pool-tile[data-pool-index="' + index + '"]');
@@ -445,6 +944,7 @@
       var h = game.hint();
       if (h === null) return;                              // 没有空格可填:不扣币
       coins -= 60;
+      playSound('hint');                                 // 第 A3a 步:扣币成功后播提示音
       render(game, script);
       save();                                              // 金币变化后存档
       checkWin();                                          // 提示填入后也要检查通关
@@ -487,6 +987,7 @@
       if (!btn) return;
       if (btn.querySelector('.home-btn-sub')) { showScreen('game'); return; }  // 继续游戏
       if (btn.textContent === '选关') { showScreen('levels'); return; }
+      if (btn.textContent === '签到') { openCheckinPanel(); return; }
       openSettingsPanel();                                                      // 设置
     });
 
@@ -518,6 +1019,7 @@
       .then(function (json) {
         levels = Game.loadLevels(json);           // 提到外层变量(第 4c 步规则 2)
         var saved = load();                       // 启动先读存档
+        cleared = loadProgress();                 // 第 C1 步:通关记录(levels 已加载,可安全读/迁移)
         currentIndex = saved.level;
         coins = saved.coins;
         script = saved.script;                    // 读存档里的 's'/'t'(第 5a 步起可切换)
