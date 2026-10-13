@@ -118,7 +118,10 @@
       }
     } catch (e) { /* 忽略 */ }
   }
-  document.addEventListener('pointerdown', function () { startMusic(); });  // 绑在 document:档案登录页(profile gate)也能触发
+  document.addEventListener('pointerdown', function () { startMusic(); });
+  // 触屏浏览器里 pointerdown 不一定算"用户手势"(音频会被拦截),click/touchend 再补一道;startMusic 重复调用无副作用
+  document.addEventListener('click', function () { startMusic(); });
+  document.addEventListener('touchend', function () { startMusic(); });  // 绑在 document:档案登录页(profile gate)也能触发
   document.addEventListener('visibilitychange', function () {
     try {
       if (!window.Music) return;
@@ -1900,6 +1903,12 @@
         script = saved.script;                    // 读存档里的 's'/'t'(第 5a 步起可切换)
         unlocked = saved.unlocked;                // 第 5b 步:读存档里的 unlocked(load() 已校验/抬高)
         unlockAll = saved.unlockAll;                // 第 E2 步:读回开关状态(load() 已校验,非布尔一律 false)
+        // 修复:旧版"解锁全部"会把真实进度 unlocked 永久抬到最后一关,导致开关"关"了仍全开。
+        // 真实进度 = 连续通关前缀(从第 1 关起连续已通关的关数,即下一个待玩关的序号);
+        // 取 max(前缀, 存档当前关) 为上限,通关记录损坏时也不会把玩家退回到当前关以下。
+        var prefix = 0;
+        while (cleared.indexOf(prefix) !== -1) prefix++;
+        unlocked = Math.min(unlocked, Math.min(levels.length - 1, Math.max(prefix, saved.level)));
         window.__game = Game.createGame(levels[currentIndex]);
         render(window.__game, script);
         bindOnce();          // 事件只绑一次(#board / #pool / 三个按钮 / 弹窗遮罩)
