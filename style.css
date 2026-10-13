@@ -739,3 +739,28 @@ main {
 .guest-name { font-size: 14px; font-weight: bold; color: var(--ink, #1c2a36); margin-top: 2px; }
 .guest-desc { font-size: 11px; color: #7a7260; line-height: 1.35; margin-top: 2px; padding: 0 2px; }
 .guest-card.locked .guest-name { color: #9a917c; }
+
+/* G1:通关弹窗次按钮("下一关"/"重新开始") */
+.meaning-close.win-next {
+  margin-top: 10px;
+  background: linear-gradient(#fffdf5, #efe6cc);
+  color: #2f4f5f;
+  border-color: #d8c9a3;
+  box-shadow: 0 3px 0 #b9ad8a, 0 5px 8px rgba(0,0,0,.15);
+  text-shadow: none;
+}
+.meaning-close.win-next:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #b9ad8a;
+}
+
+/* G1:通关弹窗按钮区吸底(弹窗内容可滚动时按钮始终可见) */
+.win-actions {
+  position: sticky;
+  bottom: -16px;                 /* 抵消 #win-panel 的 16px 内边距 */
+  margin: 8px -16px -16px;
+  padding: 10px 16px 16px;
+  background: linear-gradient(rgba(243,234,208,0), #f3ead0 22%);
+}
+.win-actions .meaning-close { display: block; width: 100%; margin-top: 0; }
+.win-actions .meaning-close + .meaning-close { margin-top: 10px; }

@@ -16,6 +16,7 @@
   var script = DEFAULT_SCRIPT;        // 's'/'t';第 5a 步起可在设置面板里切换
   var rewarded = false;               // 防重复:同一关只发一次通关奖励,进入新关时清零
   var unlocked = 0;                   // 第 5b 步:已解锁的最大关卡序号(从 0 开始),序号 <= unlocked 的关卡可进入
+  var unlockAll = false;              // 第 E2 步:"解锁全部"开关(true 时选关页全部可点,不改真实进度 unlocked)
   var prevFilled = {};                // 第 A2a 步:上一次 render 时每个格子是否已有字,键 'r,c' → true
   var prevDone = {};                  // 第 A2a 步:上一次 render 时属于已完成词的格子,键 'r,c' → true
   var lastLevelId = null;             // 第 A2a 步:上一次 render 的关卡 id,换关时不播放动画
@@ -73,21 +74,64 @@
       osc.start(t0); osc.stop(t0 + dur + 0.02);
     } catch (e) { /* 忽略 */ }
   }
+  // 第 F1 步:金币撒落声——约 1.5 秒内 12 次清脆叮当(填字相关音效已全部静音)
+  function coinShower() {
+    // 约 1.5 秒内 12 次清脆的金币叮当声:高频正弦 + 短促泛音,音高随机取自五声音阶高音
+    var pitches = [1568, 1760, 2093, 2349, 2637];
+    for (var i = 0; i < 12; i++) {
+      var t = i * 0.11 + Math.random() * 0.06;
+      var f = pitches[Math.floor(Math.random() * pitches.length)];
+      tone(f, t, 0.16, 'sine', 0.07);
+      tone(f * 1.5, t + 0.012, 0.1, 'sine', 0.035);
+    }
+  }
   function playSound(name) {
     window.__sfxLog.push(name);
     if (window.__sfxLog.length > 60) window.__sfxLog.shift();
     if (!soundOn) return;
     try {
-      if (name === 'select')       { tone(880, 0, 0.05, 'sine', 0.08); }
-      else if (name === 'correct') { tone(660, 0, 0.09, 'triangle', 0.12); tone(990, 0.09, 0.12, 'triangle', 0.12); }
-      else if (name === 'wrong')   { tone(170, 0, 0.18, 'sawtooth', 0.07); tone(125, 0.1, 0.2, 'sawtooth', 0.07); }
-      else if (name === 'word')    { tone(523, 0, 0.12, 'triangle', 0.13); tone(659, 0.11, 0.12, 'triangle', 0.13); tone(784, 0.22, 0.2, 'triangle', 0.13); }
-      else if (name === 'hint')    { tone(1200, 0, 0.08, 'sine', 0.09); tone(1600, 0.08, 0.12, 'sine', 0.09); }
+      // 第 F1 步:select/correct/wrong/word 不发声(仍记录进 __sfxLog,调用点不变)
+      if (name === 'hint')    { tone(1200, 0, 0.08, 'sine', 0.09); tone(1600, 0.08, 0.12, 'sine', 0.09); }
       else if (name === 'win')     { tone(523, 0, 0.14, 'triangle', 0.14); tone(659, 0.13, 0.14, 'triangle', 0.14); tone(784, 0.26, 0.14, 'triangle', 0.14); tone(1047, 0.39, 0.4, 'triangle', 0.15); }
+      else if (name === 'coin') { coinShower(); }
     } catch (e) { /* 忽略 */ }
   }
   window.__setSound = setSoundOn;
   window.__getSound = function () { return soundOn; };
+// ---------- 背景音乐(第 F2 步):接入 window.Music(由 music.js 提供),设备级偏好 ----------
+  var MUSIC_KEY = 'chengyu-tiantian-music';   // 设备级偏好,不按档案区分(同 SOUND_KEY 写法)
+  var musicOn = true;                          // 默认开:没有这个键就是开
+  try { if (localStorage.getItem(MUSIC_KEY) === 'off') musicOn = false; } catch (e) {}
+
+  function setMusicOn(v) {
+    musicOn = !!v;
+    try { localStorage.setItem(MUSIC_KEY, musicOn ? 'on' : 'off'); } catch (e) {}
+  }
+  // 浏览器会拦截未交互时的自动播放,所以只在首次用户手势后调用(见下方 pointerdown 监听)。
+  function startMusic() {
+    if (!musicOn) return;
+    if (!window.Music) return;                 // music.js 没加载时不报错
+    try {
+      if (!Music.isPlaying()) {                // 只在尚未播放时启动
+        Music.setVolume(0.5);
+        Music.start();
+      }
+    } catch (e) { /* 忽略 */ }
+  }
+  document.addEventListener('pointerdown', function () { startMusic(); });  // 绑在 document:档案登录页(profile gate)也能触发
+  document.addEventListener('visibilitychange', function () {
+    try {
+      if (!window.Music) return;
+      if (document.hidden) {
+        if (Music.isPlaying()) Music.pause();  // 页面隐藏:暂停
+      } else if (musicOn) {
+        Music.resume();                        // 暂停过则恢复(没暂停/没 start 时 resume 内部无操作)
+        startMusic();                          // 还没 start 过则启动(已在播放则跳过)
+      }
+    } catch (e) { /* 忽略 */ }
+  });
+  window.__musicOn = function () { return musicOn; };   // 第 F2 步:测试钩子
+
 
   // 轻提示:屏幕下方居中的深色小条,约 1.5 秒后自动消失;新的替换旧的。
   function showToast(msg) {
@@ -271,13 +315,15 @@
         level: (typeof levelOverride === 'number') ? levelOverride : currentIndex,
         coins: coins,
         script: script,
-        unlocked: unlocked                        // 第 5b 步:存档增加 unlocked 字段
+        unlocked: unlocked,                       // 第 5b 步:存档增加 unlocked 字段
+        unlockAll: unlockAll                        // 第 E2 步:开关状态入档(独立布尔,不改动 unlocked)
       }));
     } catch (e) { /* 读写失败:忽略 */ }
   }
 
   function load() {
-    var s = { level: DEFAULT_LEVEL, coins: DEFAULT_COINS, script: DEFAULT_SCRIPT, unlocked: 0 };
+    var s = { level: DEFAULT_LEVEL, coins: DEFAULT_COINS, script: DEFAULT_SCRIPT, unlocked: 0, unlockAll: false };
+    var hadUnlocked = false;                       // 存档里是否有合法的 unlocked 字段(旧存档没有)
     try {
       var raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -296,12 +342,17 @@
           if (typeof o.unlocked === 'number' && Number.isInteger(o.unlocked) &&
               o.unlocked >= 0 && o.unlocked < levels.length) {
             s.unlocked = o.unlocked;
+            hadUnlocked = true;
           }
+          // 第 E2 步:unlockAll 只认真布尔值;缺失/其它值一律 false(旧存档兼容)
+          if (typeof o.unlockAll === 'boolean') s.unlockAll = o.unlockAll;
         }
       }
     } catch (e) { /* 读不到 / 解析失败:用默认值 */ }
     // 第 5b 步:保证当前关一定已解锁 —— level 大于 unlocked 时把 unlocked 抬到 level
-    if (s.level > s.unlocked) s.unlocked = s.level;
+    // 旧存档(没有合法 unlocked 字段):按 level 抬高;新存档:开关关闭时 level 不得超过真实进度
+    if (!hadUnlocked) { if (s.level > s.unlocked) s.unlocked = s.level; }
+    else if (!s.unlockAll && s.level > s.unlocked) s.level = s.unlocked;
     return s;
   }
 
@@ -472,14 +523,27 @@
     panel.appendChild(gain);
 
     var last = currentIndex >= levels.length - 1;   // 最后一关:按钮变"重新开始"
-    var btn = el('button', 'meaning-close');        // 复用关闭按钮样式
+    // 第 G1 步:两个按钮——主按钮"回主页"(先切到下一关再回主页),次按钮保留原"下一关"快捷方式。
+    var actions = el('div', 'win-actions');         // 按钮区固定在弹窗底部(成语多时不用滚动才看到)
+    var homeBtn = el('button', 'meaning-close');    // 复用关闭按钮样式
+    homeBtn.type = 'button';
+    homeBtn.textContent = '回主页';
+    homeBtn.addEventListener('click', function () { // 每次重建,绑在当前按钮上,无重复问题
+      closeWinModal();
+      gotoLevel(last ? 0 : currentIndex + 1);       // 跟原"下一关"的存档/解锁逻辑完全一致
+      showScreen('home');                           // showScreen('home') 内部 renderHome 刷新进度
+    });
+    actions.appendChild(homeBtn);
+
+    var btn = el('button', 'meaning-close win-next');
     btn.type = 'button';
     btn.textContent = last ? '重新开始' : '下一关';
     btn.addEventListener('click', function () {     // 每次重建,绑在当前按钮上,无重复问题
       closeWinModal();
       gotoLevel(last ? 0 : currentIndex + 1);       // 重新开始时 unlocked 保持不变(第 5b 步)
     });
-    panel.appendChild(btn);
+    actions.appendChild(btn);
+    panel.appendChild(actions);
 
     document.getElementById('win-overlay').hidden = false;
   }
@@ -531,32 +595,126 @@
         setSoundOn(pair[1]);
         onBtn.classList.toggle('active', soundOn);
         offBtn.classList.toggle('active', !soundOn);
-        if (soundOn) playSound('correct');                     // 开启时试听;关闭时不播放
+        if (soundOn) playSound('hint');                      // 第 F1 步:开启时用提示音试听(correct 已静音);关闭时不播放
       });
       if (pair[0] === 'on') onBtn = b; else offBtn = b;
       soundRow.appendChild(b);
     });
     panel.appendChild(soundRow);
-
-    // 第 7b 步:解锁全部关卡按钮(独立一行,事件直接绑在按钮上,同字体按钮做法)
-    var unlockRow = el('div', 'settings-row');
-    var unlockBtn = el('button', 'unlock-all-btn');
-    unlockBtn.type = 'button';
-    if (unlocked >= levels.length - 1) {         // 面板每次重建:创建时直接判断已全解锁
-      unlockBtn.disabled = true;
-      unlockBtn.textContent = '已全部解锁';
-    } else {
-      unlockBtn.textContent = '解锁全部关卡';
-      unlockBtn.addEventListener('click', function () {
-        unlocked = levels.length - 1;            // 全部可点
-        save();                                  // 存档(不动 currentIndex/coins/script)
-        showToast('已解锁全部关卡');
-        unlockBtn.disabled = true;               // 变禁用,不可再点
-        unlockBtn.textContent = '已全部解锁';
+    // 第 F2 步:音乐开关行(复用 settings-row / settings-label / script-btn / active,做法完全照抄音效行)
+    var musicRow = el('div', 'settings-row');
+    var musicOnBtn, musicOffBtn;                                     // forEach 内共享引用,点击时互相更新 active
+    var musicLabel = el('span', 'settings-label');
+    musicLabel.textContent = '音乐:';
+    musicRow.appendChild(musicLabel);
+    [['on', true], ['off', false]].forEach(function (pair) {         // pair[0]:data-music 值,pair[1]:对应 musicOn 值
+      var b = el('button', 'script-btn');
+      b.type = 'button';
+      b.setAttribute('data-music', pair[0]);
+      b.textContent = pair[0] === 'on' ? '开' : '关';
+      if (musicOn === pair[1]) b.classList.add('active');            // 当前状态加 active
+      b.addEventListener('click', function () {                      // 只更新这两个按钮的 active,不重建面板
+        setMusicOn(pair[1]);                                         // 存设备级偏好
+        if (musicOn) startMusic();                                   // 开:启动(已播放则内部跳过)
+        else if (window.Music) { try { Music.stop(); } catch (e) {} } // 关:停止(无 Music 不报错)
+        musicOnBtn.classList.toggle('active', musicOn);
+        musicOffBtn.classList.toggle('active', !musicOn);
       });
-    }
-    unlockRow.appendChild(unlockBtn);
+      if (pair[0] === 'on') musicOnBtn = b; else musicOffBtn = b;
+      musicRow.appendChild(b);
+    });
+    var nextBtn = el('button', 'script-btn');                        // "换一首"放同一行最后
+    nextBtn.type = 'button';
+    nextBtn.setAttribute('data-music', 'next');
+    nextBtn.textContent = '换一首';
+    nextBtn.addEventListener('click', function () {
+      if (!musicOn) return;                                          // 关着时什么都不做
+      if (!window.Music) return;
+      try { Music.next(); } catch (e) { /* 忽略 */ }
+    });
+    musicRow.appendChild(nextBtn);
+    panel.appendChild(musicRow);
+
+
+    // 第 E2 步:"解锁全部"开关(独立一行,复用 settings-row / script-btn / active,同字体按钮做法)。
+    // 开关只改 unlockAll,不碰真实进度 unlocked;关闭后选关页恢复按 unlocked 解锁。
+    var unlockRow = el('div', 'settings-row');
+    var unlockLabel = el('span', 'settings-label');
+    unlockLabel.textContent = '解锁全部:';
+    unlockRow.appendChild(unlockLabel);
+    var onBtn2, offBtn2;
+    [['on', true], ['off', false]].forEach(function (pair) {   // pair[0]:data-unlock 值,pair[1]:对应 unlockAll 值
+      var b = el('button', 'script-btn');
+      b.type = 'button';
+      b.setAttribute('data-unlock', pair[0]);
+      b.textContent = pair[0] === 'on' ? '开' : '关';
+      if (unlockAll === pair[1]) b.classList.add('active');    // 当前状态加 active
+      b.addEventListener('click', function () {                // 只更新这两个按钮的 active,不重建面板
+        if (unlockAll === pair[1]) return;                     // 状态没变:无操作
+        unlockAll = pair[1];
+        save();                                                // 开关状态入档(不动 currentIndex/coins/unlocked)
+        onBtn2.classList.toggle('active', unlockAll);
+        offBtn2.classList.toggle('active', !unlockAll);
+        showToast(unlockAll ? '已解锁全部关卡' : '已恢复真实进度');
+      });
+      if (pair[0] === 'on') onBtn2 = b; else offBtn2 = b;
+      unlockRow.appendChild(b);
+    });
     panel.appendChild(unlockRow);
+
+    // 第 E2 步:重置进度行(复用 settings-row / settings-label / profile-warn / profile-err / profile-del)
+    var resetRow = el('div', 'settings-row');
+    var resetLabel = el('span', 'settings-label');
+    resetLabel.textContent = '重置进度:';
+    resetRow.appendChild(resetLabel);
+    var resetWarn = el('div', 'profile-warn');
+    resetWarn.textContent = '清空当前玩家的全部进度(金币、通关记录、成语册、签到),重新开始';
+    var resetErr = el('div', 'profile-err');
+    var resetBtn = el('button', 'profile-del');
+    resetBtn.type = 'button';
+    resetBtn.textContent = '重置进度';
+    var confirmState = 0;                                      // 0=未点过 1=已点一次待再点确认
+    resetBtn.addEventListener('click', function () {
+      if (confirmState === 0) {                                // 第一次点:出确认文案 + 密码框(可留空)
+        confirmState = 1;
+        resetWarn.textContent = '再点一次"重置进度"确认;若设置了 PIN,请输入 PIN 确认';
+        var pinIn = el('input', 'profile-pin');
+        pinIn.type = 'password';
+        pinIn.inputMode = 'numeric';
+        pinIn.pattern = '[0-9]*';
+        pinIn.maxLength = 4;
+        pinIn.autocomplete = 'off';
+        pinIn.placeholder = 'PIN(可留空)';
+        resetRow.appendChild(pinIn);
+        resetBtn.textContent = '确认重置';
+        try { pinIn.focus(); } catch (e) {}
+        return;
+      }
+      var prof = null;                                         // 第 E1a 步:有 PIN 的档案要 PIN 对才重置
+      if (currentProfileId && currentProfileId !== 'legacy') {
+        var list = loadProfiles().list;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === currentProfileId) { prof = list[i]; break; }
+        }
+      }
+      var pinIn2 = resetRow.querySelector('.profile-pin');
+      var pinVal = pinIn2 ? pinIn2.value : '';
+      if (prof) {
+        if (!/^\d{4}$/.test(pinVal)) { resetErr.textContent = '请输入 PIN 确认'; return; }
+        if (!verifyPin(prof, pinVal)) { resetErr.textContent = 'PIN 不正确'; return; }
+      }
+      resetProgress();                                         // 清空当前档案全部进度
+      resetWarn.textContent = '已重置,从头开始';
+      resetErr.textContent = '';
+      confirmState = 0;
+      resetBtn.textContent = '重置进度';
+      if (pinIn2) resetRow.removeChild(pinIn2);
+      showToast('进度已重置');
+    });
+    resetRow.appendChild(resetWarn);
+    resetRow.appendChild(resetErr);
+    resetRow.appendChild(resetBtn);
+    panel.appendChild(resetRow);
 
     var close = el('button', 'meaning-close');  // 复用关闭按钮样式
     close.type = 'button';
@@ -615,7 +773,7 @@
         var r = claimCheckin();
         if (r) {
           showToast('签到成功,获得 ' + r.reward + ' 金币');
-          playSound('word');
+          playSound('coin');                                 // 第 F1 步:签到领奖撒金币叮当声(原 word 已静音)
           // 同步金币显示:首页可见则 renderHome() 重绘;否则更新游戏页金币数字
           if (!document.getElementById('home').hidden) renderHome();
           else document.getElementById('coins-num').textContent = String(coins);
@@ -728,6 +886,102 @@
   }
   window.__openProgress = openProgressPanel;
 
+  // ---------- 第 E1b 步:玩家档案面板(复用 #settings-overlay / #settings-panel,每次重建内容) ----------
+  function openProfilePanel() {
+    if (!currentProfileName()) return;   // 无档案/兼容模式:不进此面板
+
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+
+    var h = el('div', 'win-title');
+    h.textContent = '玩家档案';
+    panel.appendChild(h);
+
+    var cur = el('div', 'profile-current');
+    cur.textContent = '当前玩家:' + currentProfileName();
+    panel.appendChild(cur);
+
+    var sw = el('button', 'checkin-claim');   // 复用绿色按钮样式
+    sw.type = 'button';
+    sw.textContent = '切换玩家';
+    sw.addEventListener('click', function () {
+      try { save(); } catch (e) {}
+      try { localStorage.removeItem(ACTIVE_KEY); } catch (e) {}
+      location.reload();
+    });
+    panel.appendChild(sw);
+
+    var del = el('button', 'profile-del');
+    del.type = 'button';
+    del.textContent = '删除此档案';
+    del.addEventListener('click', openProfileDeletePanel);   // 每次重建,绑在当前按钮上
+    panel.appendChild(del);
+
+    var close = el('button', 'meaning-close');
+    close.type = 'button';
+    close.textContent = '关闭';
+    close.addEventListener('click', closeSettingsPanel);     // 每次重建,绑在当前按钮上
+    panel.appendChild(close);
+
+    document.getElementById('settings-overlay').hidden = false;
+  }
+  window.__openProfilePanel = openProfilePanel;
+
+  // 确认删除视图:输入该档案的 4 位 PIN 才能永久删除(删完 reload 回选择/新建档案界面)
+  function openProfileDeletePanel() {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+
+    var h = el('div', 'win-title');
+    h.textContent = '删除档案';
+    panel.appendChild(h);
+
+    var warn = el('div', 'profile-warn');
+    warn.textContent = '将永久删除「' + currentProfileName() + '」的所有进度,无法恢复。请输入该档案的 4 位 PIN 确认。';
+    panel.appendChild(warn);
+
+    var input = el('input', 'profile-pin');
+    input.id = 'pg-delpin';
+    input.type = 'password';
+    input.inputMode = 'numeric';
+    input.pattern = '[0-9]*';
+    input.maxLength = 4;
+    input.autocomplete = 'off';
+    input.placeholder = '4 位 PIN';
+    panel.appendChild(input);
+
+    var err = el('div', 'profile-err');
+    err.textContent = '';
+    panel.appendChild(err);
+
+    var ok = el('button', 'profile-del');
+    ok.type = 'button';
+    ok.textContent = '确认删除';
+    ok.addEventListener('click', function () {   // 每次重建,绑在当前按钮上
+      var profile = null;
+      var list = loadProfiles().list;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].id === currentProfileId) { profile = list[i]; break; }
+      }
+      if (!profile || !verifyPin(profile, input.value)) {
+        err.textContent = 'PIN 不正确';
+        input.value = '';
+        return;
+      }
+      deleteProfileData(currentProfileId);
+      location.reload();
+    });
+    panel.appendChild(ok);
+
+    var back = el('button', 'meaning-close');
+    back.type = 'button';
+    back.textContent = '取消';
+    back.addEventListener('click', openProfilePanel);   // 每次重建,绑在当前按钮上
+    panel.appendChild(back);
+
+    document.getElementById('settings-overlay').hidden = false;
+  }
+
   // ---------- 成语册面板(第 D1 步):复用 #settings-overlay / #settings-panel,每次重建内容 ----------
   function openVocabPanel() {
     var panel = document.getElementById('settings-panel');
@@ -830,6 +1084,7 @@
   // 第 A2b 步:通关庆祝(撒花 + 金币滚动 + 飘字 + 延迟弹窗)
   function celebrate(reward, oldCoins) {
     playSound('win');                                    // 第 A3a 步:通关音效(声音不属于视觉动效,放 reduce 判断之前)
+    playSound('coin');                                   // 第 F1 步:通关撒金币叮当声
     // 尊重"减少动态效果"系统设置
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     rollCoins(oldCoins, coins, reduce ? 0 : 700);
@@ -972,7 +1227,7 @@
     var oldCoins = coins;
     coins += reward;
     // 第 5b 步:通关解锁下一关(不超过最后一关);重新开始(最后一关通关回第 1 关)时不重置
-    unlocked = Math.min(Math.max(unlocked, currentIndex + 1), levels.length - 1);
+    if (currentIndex <= unlocked) unlocked = Math.min(Math.max(unlocked, currentIndex + 1), levels.length - 1);   // 只有按顺序推进才提升真实进度(开关打开时跳关不算)
     // 第 A2b 步:不整盘重画(否则最后一格弹跳动画被抹掉),只更新金币相关 UI
     document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
     document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
@@ -989,6 +1244,7 @@
     if (houseInfo().name !== oldHouse) promoParts.push('府邸升级:' + houseInfo().name);
     if (newGuests > oldGuests) promoParts.push('宾客来访:' + guestsUnlocked()[newGuests - 1].name);  // 第 D2 步:一次通关最多新解锁一位
     pendingPromo = promoParts.join(' · ');
+    // 第 E2 步:save() 现在会写出 unlockAll,通关时开关状态一并入档(内存值不变)
     save(currentIndex >= levels.length - 1 ? 0 : currentIndex + 1);
     celebrate(reward, oldCoins);
     setTimeout(function () {
@@ -1021,6 +1277,14 @@
     var num = el('span', 'home-coins-num');
     num.textContent = String(coins);
     coinRow.appendChild(num);
+    // 第 E1b 步:当前玩家名字胶囊(div,不加 home-btn,不进首页按钮点击委托);为空(无档案/兼容模式)时不显示
+    var pname = currentProfileName();
+    if (pname) {
+      var nameBtn = el('div', 'home-name');
+      nameBtn.textContent = '👤 ' + pname;
+      nameBtn.addEventListener('click', openProfilePanel);
+      top.appendChild(nameBtn);
+    }
     top.appendChild(coinRow);
     home.appendChild(top);
 
@@ -1076,7 +1340,8 @@
       tile.type = 'button';
       tile.setAttribute('data-level-index', String(i));   // 0 开始的序号(事件委托用)
       tile.textContent = String(level.id);
-      if (i > unlocked) tile.classList.add('locked');     // 未解锁:灰底淡字,点击无反应
+      // 第 E2 步:开关开着时全部可点;否则按真实进度 unlocked
+      if (!unlockAll && i > unlocked) tile.classList.add('locked');   // 未解锁:灰底淡字,点击无反应
       else if (i === currentIndex) tile.classList.add('current');   // 当前关:朱红边框
       grid.appendChild(tile);
     });
@@ -1195,7 +1460,7 @@
       var tile = e.target.closest('.level-tile');
       if (!tile) return;
       var index = parseInt(tile.getAttribute('data-level-index'), 10);
-      if (index > unlocked) return;                     // 未解锁:无反应
+      if (!unlockAll && index > unlocked) return;       // 第 E2 步:未解锁(且开关关):无反应
       gotoLevel(index);
       showScreen('game');
     });
@@ -1209,6 +1474,415 @@
     });
   }
 
+  // ---------- 玩家档案数据层(第 E1a-1 步) ----------
+  var PROFILES_KEY = 'chengyu-tiantian-profiles';
+  var ACTIVE_KEY = 'chengyu-tiantian-active';
+  var currentProfileId = null;
+
+  // 经典 cyrb53 哈希(种子 0),返回数字。
+  function cyrb53(str, seed) {
+    seed = seed | 0;
+    var h1 = 0xdeadbeef ^ seed, h2 = 0x41c6be57 ^ seed;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  }
+  function hashPin(salt, pin) { return cyrb53(salt + ':' + pin, 0).toString(16); }
+
+  // 8 位随机字母数字串。
+  function genSalt() {
+    var cs = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var s = '';
+    for (var i = 0; i < 8; i++) s += cs[Math.floor(Math.random() * cs.length)];
+    return s;
+  }
+  function genProfileId() {
+    return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  // 读注册表并校验:整体必须是对象且 list 是数组;逐项要求 id/name/salt/hash
+  // 都是非空字符串,不合格的项过滤掉;坏数据或读不到都返回 { list: [] }。
+  function loadProfiles() {
+    try {
+      var raw = localStorage.getItem(PROFILES_KEY);
+      if (!raw) return { list: [] };
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== 'object' || !Array.isArray(o.list)) return { list: [] };
+      var ok = o.list.filter(function (p) {
+        return p && typeof p === 'object' &&
+          typeof p.id === 'string' && p.id !== '' &&
+          typeof p.name === 'string' && p.name !== '' &&
+          typeof p.salt === 'string' && p.salt !== '' &&
+          typeof p.hash === 'string' && p.hash !== '';
+      });
+      return { list: ok };
+    } catch (e) { return { list: [] }; }
+  }
+
+  function saveProfiles(reg) {
+    try { localStorage.setItem(PROFILES_KEY, JSON.stringify(reg)); } catch (e) {}
+  }
+
+  // 档案 id 为 X 时四个键变成 'chengyu-tiantian:X' 等;id==='legacy' 时保持无后缀原名。
+  function profileKeyNames(id) {
+    if (id === 'legacy') {
+      return {
+        save: 'chengyu-tiantian',
+        checkin: 'chengyu-tiantian-checkin',
+        progress: 'chengyu-tiantian-progress',
+        vocab: 'chengyu-tiantian-vocab'
+      };
+    }
+    return {
+      save: 'chengyu-tiantian:' + id,
+      checkin: 'chengyu-tiantian-checkin:' + id,
+      progress: 'chengyu-tiantian-progress:' + id,
+      vocab: 'chengyu-tiantian-vocab:' + id
+    };
+  }
+
+  function applyProfileKeys(id) {
+    var k = profileKeyNames(id);
+    SAVE_KEY = k.save;
+    CHECKIN_KEY = k.checkin;
+    PROGRESS_KEY = k.progress;
+    VOCAB_KEY = k.vocab;
+    currentProfileId = id;
+  }
+
+  function legacyDataExists() {
+    try { return localStorage.getItem('chengyu-tiantian') !== null; } catch (e) { return false; }
+  }
+
+  // 把无后缀的四个旧键里【存在的】值复制到该档案的带后缀键;全部复制成功后才
+  // 删除无后缀旧键(任何一步异常就不删除,旧数据保留);返回 true/false。
+  function migrateLegacyTo(id) {
+    if (id === 'legacy') return false;
+    var oldKeys = ['chengyu-tiantian', 'chengyu-tiantian-checkin', 'chengyu-tiantian-progress', 'chengyu-tiantian-vocab'];
+    var newKeys = profileKeyNames(id);
+    var names = ['save', 'checkin', 'progress', 'vocab'];
+    try {
+      var copied = [];
+      for (var i = 0; i < oldKeys.length; i++) {
+        var raw = localStorage.getItem(oldKeys[i]);
+        if (raw === null) continue;                        // 不存在的旧键:跳过
+        localStorage.setItem(newKeys[names[i]], raw);
+        copied.push(i);
+      }
+      for (var j = 0; j < copied.length; j++) {
+        localStorage.removeItem(oldKeys[copied[j]]);
+      }
+      return true;
+    } catch (e) { return false; }                         // 异常:不删除,旧数据保留
+  }
+
+  function verifyPin(profile, pin) {
+    return /^\d{4}$/.test(pin) && hashPin(profile.salt, pin) === profile.hash;
+  }
+
+  // 第 E1b 步:当前玩家名字。无档案(null)或兼容模式('legacy')返回 ''。
+  function currentProfileName() {
+    if (!currentProfileId || currentProfileId === 'legacy') return '';
+    var list = loadProfiles().list;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === currentProfileId) return list[i].name;
+    }
+    return '';
+  }
+
+  // 校验:name 去首尾空格后长度 1~8;不能重名;pin 必须 4 位数字。
+  // 合格:生成 id/salt/hash,push 进注册表并保存,返回 { ok:true, profile:{id,name} }
+  // (返回值不带 salt/hash)。
+  function createProfile(name, pin) {
+    var n = (typeof name === 'string') ? name.trim() : '';
+    if (n.length < 1 || n.length > 8) return { ok: false, error: '请输入名字' };
+    var reg = loadProfiles();
+    for (var i = 0; i < reg.list.length; i++) {
+      if (reg.list[i].name === n) return { ok: false, error: '名字已被使用' };
+    }
+    if (!/^\d{4}$/.test(typeof pin === 'string' ? pin : '')) return { ok: false, error: 'PIN 要是 4 位数字' };
+    var id = genProfileId();
+    var salt = genSalt();
+    var entry = { id: id, name: n, salt: salt, hash: hashPin(salt, pin) };
+    reg.list.push(entry);
+    saveProfiles(reg);
+    return { ok: true, profile: { id: id, name: n } };
+  }
+
+  // 删除该档案的四个存档键(id==='legacy' 时不做任何事返回 false),从注册表移除
+  // 并保存;ACTIVE_KEY 等于该 id 也一并删除;返回 true。
+  function deleteProfileData(id) {
+    if (id === 'legacy') return false;
+    var k = profileKeyNames(id);
+    try {
+      localStorage.removeItem(k.save);
+      localStorage.removeItem(k.checkin);
+      localStorage.removeItem(k.progress);
+      localStorage.removeItem(k.vocab);
+      var reg = loadProfiles();
+      reg.list = reg.list.filter(function (p) { return p.id !== id; });
+      saveProfiles(reg);
+      try { if (localStorage.getItem(ACTIVE_KEY) === id) localStorage.removeItem(ACTIVE_KEY); } catch (e2) {}
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // 测试钩子(挂在 window 上)
+  window.__profiles = function () { return loadProfiles().list.map(function (p) { return p.name; }); };
+  window.__profileApi = {
+    create: createProfile,
+    verify: function (name, pin) {
+      var p = loadProfiles().list.filter(function (x) { return x.name === name; })[0];
+      return !!p && verifyPin(p, pin);
+    },
+    apply: applyProfileKeys,
+    migrate: migrateLegacyTo,
+    legacyExists: legacyDataExists,
+    remove: deleteProfileData,
+    keys: profileKeyNames,
+    current: function () { return currentProfileId; },
+    reset: function () { resetProgress(); }
+  };
+
+  // 第 E2 步:重置当前档案的全部进度:四个键(SAVE/CHECKIN/PROGRESS/VOCAB)全部
+  // removeItem,内存同步回默认值(金币 100、第 1 关、unlocked=0、cleared/vocab 清空、
+  // rewarded 清零、pendingPromo 置空、prevFilled/prevDone 清空、开关关、音效开关不动);
+  // 注册表与 ACTIVE_KEY 不动(玩家和 PIN 保留)。重置后重建游戏并 render + save。
+  function resetProgress() {
+    try {
+      localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem(CHECKIN_KEY);
+      localStorage.removeItem(PROGRESS_KEY);
+      localStorage.removeItem(VOCAB_KEY);
+    } catch (e) { /* 写失败:内存照常重置 */ }
+    coins = DEFAULT_COINS;
+    currentIndex = DEFAULT_LEVEL;
+    unlocked = 0;
+    unlockAll = false;
+    rewarded = false;
+    pendingPromo = '';
+    prevFilled = {};
+    prevDone = {};
+    cleared = [];
+    vocab = [];
+    if (window.__game) {                                       // start() 之前调用时没有游戏实例
+      window.__game = Game.createGame(levels[currentIndex]);
+      render(window.__game, script);
+    }
+    save();                                                    // 写回默认档(含 unlockAll:false)
+    var homeEl = document.getElementById('home');
+    if (homeEl && !homeEl.hidden) renderHome();                // 首页可见时刷新(金币/第 N 关/功名条)
+  }
+
+  // ---------- 玩家档案界面(第 E1a-2 步) ----------
+  function enterProfile(id, onDone) {
+    if (id !== 'legacy') {
+      try { localStorage.setItem(ACTIVE_KEY, id); } catch (e) {}
+    }
+    applyProfileKeys(id);
+    var old = document.getElementById('profile-gate');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    if (typeof onDone === 'function') onDone();
+  }
+
+  function showProfileGate(onDone, startProfileId) {
+    var old = document.getElementById('profile-gate');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var gate = el('div');
+    gate.id = 'profile-gate';
+    document.body.appendChild(gate);
+
+    function findProfile(id) {
+      var list = loadProfiles().list;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].id === id) return list[i];
+      }
+      return null;
+    }
+
+    // 视图 A「选择档案」
+    function renderPick() {
+      gate.textContent = '';
+      var t = el('div', 'pg-title');
+      t.textContent = '成语填填';
+      gate.appendChild(t);
+      var sub = el('div', 'pg-sub');
+      sub.textContent = '选择玩家';
+      gate.appendChild(sub);
+      var list = loadProfiles().list;
+      for (var i = 0; i < list.length; i++) {
+        (function (profile) {
+          var b = el('button', 'pg-btn pg-profile');
+          b.type = 'button';
+          b.textContent = profile.name;
+          b.addEventListener('click', function () { renderPin(profile); });
+          gate.appendChild(b);
+        })(list[i]);
+      }
+      var nb = el('button', 'pg-btn pg-new');
+      nb.type = 'button';
+      nb.textContent = '新建档案';
+      nb.addEventListener('click', function () { renderCreate(); });
+      gate.appendChild(nb);
+    }
+
+    // 视图 B「输入 PIN」
+    function renderPin(profile) {
+      gate.textContent = '';
+      var t = el('div', 'pg-title');
+      t.textContent = '成语填填';
+      gate.appendChild(t);
+      var sub = el('div', 'pg-sub');
+      sub.textContent = '欢迎回来,' + profile.name;
+      gate.appendChild(sub);
+      var input = el('input', 'pg-input');
+      input.id = 'pg-pin';
+      input.type = 'password';
+      input.inputMode = 'numeric';
+      input.pattern = '[0-9]*';
+      input.maxLength = 4;
+      input.autocomplete = 'off';
+      input.placeholder = '请输入 4 位 PIN';
+      gate.appendChild(input);
+      var err = el('div', 'pg-error');
+      gate.appendChild(err);
+      var ok = el('button', 'pg-btn pg-ok');
+      ok.type = 'button';
+      ok.textContent = '确定';
+      var back = el('button', 'pg-btn pg-back');
+      back.type = 'button';
+      back.textContent = '返回';
+      back.addEventListener('click', function () { renderPick(); });
+      gate.appendChild(ok);
+      gate.appendChild(back);
+
+      function submit() {
+        var v = input.value;
+        if (!/^\d{4}$/.test(v)) { err.textContent = '请输入 4 位数字'; return; }
+        if (!verifyPin(profile, v)) {
+          err.textContent = 'PIN 不正确';
+          input.value = '';
+          try { input.focus(); } catch (e) {}
+          return;
+        }
+        enterProfile(profile.id, onDone);
+      }
+      ok.addEventListener('click', submit);
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') submit();
+      });
+      try { input.focus(); } catch (e) {}
+    }
+
+    // 视图 C「新建档案」
+    function renderCreate() {
+      gate.textContent = '';
+      var t = el('div', 'pg-title');
+      t.textContent = '成语填填';
+      gate.appendChild(t);
+      var sub = el('div', 'pg-sub');
+      sub.textContent = '新建档案';
+      gate.appendChild(sub);
+      var reg = loadProfiles();
+      if (reg.list.length === 0 && legacyDataExists()) {
+        var note = el('div', 'pg-note');
+        note.textContent = '检测到已有的游戏进度,会保留到这个档案里。';
+        gate.appendChild(note);
+      }
+      var nameIn = el('input', 'pg-input');
+      nameIn.id = 'pg-name';
+      nameIn.type = 'text';
+      nameIn.maxLength = 8;
+      nameIn.placeholder = '名字(1~8 个字)';
+      gate.appendChild(nameIn);
+      var pin1 = el('input', 'pg-input');
+      pin1.id = 'pg-pin1';
+      pin1.type = 'password';
+      pin1.inputMode = 'numeric';
+      pin1.pattern = '[0-9]*';
+      pin1.maxLength = 4;
+      pin1.autocomplete = 'off';
+      pin1.placeholder = '4 位数字 PIN';
+      gate.appendChild(pin1);
+      var pin2 = el('input', 'pg-input');
+      pin2.id = 'pg-pin2';
+      pin2.type = 'password';
+      pin2.inputMode = 'numeric';
+      pin2.pattern = '[0-9]*';
+      pin2.maxLength = 4;
+      pin2.autocomplete = 'off';
+      pin2.placeholder = '再输入一次';
+      gate.appendChild(pin2);
+      var err = el('div', 'pg-error');
+      gate.appendChild(err);
+      var ok = el('button', 'pg-btn pg-ok');
+      ok.type = 'button';
+      ok.textContent = '创建';
+      gate.appendChild(ok);
+      if (reg.list.length > 0) {
+        var back = el('button', 'pg-btn pg-back');
+        back.type = 'button';
+        back.textContent = '返回';
+        back.addEventListener('click', function () { renderPick(); });
+        gate.appendChild(back);
+      }
+
+      function submit() {
+        var n = nameIn.value.trim();
+        if (n.length > 8) { err.textContent = '名字最多 8 个字'; return; }
+        if (!/^\d{4}$/.test(pin1.value)) { err.textContent = 'PIN 要是 4 位数字'; return; }
+        if (pin1.value !== pin2.value) { err.textContent = '两次 PIN 不一致'; return; }
+        var isFirst = loadProfiles().list.length === 0;
+        var hasLegacy = legacyDataExists();
+        var res = createProfile(n, pin1.value);
+        if (!res.ok) { err.textContent = res.error; return; }
+        if (isFirst && hasLegacy) migrateLegacyTo(res.profile.id);
+        enterProfile(res.profile.id, onDone);
+      }
+      ok.addEventListener('click', submit);
+      nameIn.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') submit(); });
+      pin1.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') submit(); });
+      pin2.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') submit(); });
+    }
+
+    var startProfile = startProfileId ? findProfile(startProfileId) : null;
+    if (startProfile) {
+      renderPin(startProfile);
+    } else if (loadProfiles().list.length > 0) {
+      renderPick();
+    } else {
+      renderCreate();
+    }
+  }
+
+  window.__showProfileGate = showProfileGate;
+
+  // ---------- 启动接入玩家档案(第 E1a-3 步) ----------
+  function ensureProfile(onReady) {
+    var active = null;
+    try { active = localStorage.getItem(ACTIVE_KEY); } catch (e) {}
+    if (active === 'legacy') {          // 兼容/测试模式:不显示登录界面
+      applyProfileKeys('legacy');
+      onReady();
+      return;
+    }
+    if (active) {
+      var list = loadProfiles().list;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].id === active) {    // 直接进入该档案的 PIN 输入(每次打开都要输 PIN)
+          showProfileGate(onReady, active);
+          return;
+        }
+      }
+    }
+    showProfileGate(onReady);
+  }
+
   function start() {
     fetch('data/levels.json')
       .then(function (res) {
@@ -1217,6 +1891,7 @@
       })
       .then(function (json) {
         levels = Game.loadLevels(json);           // 提到外层变量(第 4c 步规则 2)
+        ensureProfile(function () {
         var saved = load();                       // 启动先读存档
         cleared = loadProgress();                 // 第 C1 步:通关记录(levels 已加载,可安全读/迁移)
         vocab = loadVocab();                        // 第 D1 步:成语册(cleared 已加载,可安全读/迁移)
@@ -1224,6 +1899,7 @@
         coins = saved.coins;
         script = saved.script;                    // 读存档里的 's'/'t'(第 5a 步起可切换)
         unlocked = saved.unlocked;                // 第 5b 步:读存档里的 unlocked(load() 已校验/抬高)
+        unlockAll = saved.unlockAll;                // 第 E2 步:读回开关状态(load() 已校验,非布尔一律 false)
         window.__game = Game.createGame(levels[currentIndex]);
         render(window.__game, script);
         bindOnce();          // 事件只绑一次(#board / #pool / 三个按钮 / 弹窗遮罩)
@@ -1242,6 +1918,7 @@
         // 第 5b 步:三界面切换 + 解锁状态(供审查用)。数据加载完成后先进主界面。
         window.__showScreen = showScreen;
         window.__getUnlocked = function () { return unlocked; };
+        window.__getUnlockAll = function () { return unlockAll; };      // 第 E2 步:测试钩子
         // 第 7a 步:窗口尺寸/横竖屏变化时重算 --cell(只绑一次);
         // 隐藏状态(#app 有 hidden)下测不到高度,故只在游戏界面可见时调用。
         function refit() {
@@ -1252,6 +1929,7 @@
         window.addEventListener('resize', refit);
         window.addEventListener('orientationchange', refit);
         showScreen('home');
+        });
       })
       .catch(function () {
         showError('关卡读取失败,请用 python -m http.server 8000 打开');
