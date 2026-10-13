@@ -87,6 +87,37 @@
     return s;
   }
 
+  // 格子边长自适应(第 7a 步):同时受宽度和高度约束,优先保证整页不超出屏幕。
+  // 必须在 render 末尾调用(此时 #pool/#actions 已渲染好);other 不含棋盘自身高度,
+  // 所以不受当前 --cell 影响,无循环依赖。
+  function fitBoard(game) {
+    var app = document.getElementById('app');
+    var topbar = document.getElementById('topbar');
+    var main = document.querySelector('main');
+    var board = document.getElementById('board');
+    var actions = document.getElementById('actions');
+    var pool = document.getElementById('pool');
+
+    var csMain = getComputedStyle(main);
+    var csBoard = getComputedStyle(board);
+    var csActions = getComputedStyle(actions);
+    var csPool = getComputedStyle(pool);
+
+    // 其他元素占用的高度:顶栏 + main 上下 padding + board 上下 margin
+    // + actions(含上下 margin) + pool(含上下 margin)
+    var other = topbar.offsetHeight
+      + parseFloat(csMain.paddingTop) + parseFloat(csMain.paddingBottom)
+      + parseFloat(csBoard.marginTop) + parseFloat(csBoard.marginBottom)
+      + actions.offsetHeight + parseFloat(csActions.marginTop) + parseFloat(csActions.marginBottom)
+      + pool.offsetHeight + parseFloat(csPool.marginTop) + parseFloat(csPool.marginBottom);
+
+    var avail = window.innerHeight - other;
+    var cellH = (avail - (game.level.rows - 1) * 6) / game.level.rows;   // 6 = #board 的 gap
+    var cellW = (Math.min(window.innerWidth, 430) - 48) / game.level.cols;
+    var cell = Math.floor(Math.max(30, Math.min(64, cellW, cellH)));
+    app.style.setProperty('--cell', cell + 'px');
+  }
+
   // render(game, script):全量重绘顶栏、格子区、候选字区、按钮灰态。
   // script 传 's'/'t'(第 5a 步起可切换);第 4 步起会反复调用,故每次先清空再重建。
   function render(game, script) {
@@ -111,7 +142,7 @@
     var board = document.getElementById('board');
     board.textContent = '';
     document.getElementById('app').style.setProperty('--cols', String(level.cols));
-    document.getElementById('app').style.setProperty('--cell', 'min(64px, calc((100vw - 48px) / ' + level.cols + '))');
+    // 第 7a 步:--cell 不再按宽度写死,改由 render 末尾的 fitBoard 按宽高双约束计算。
 
     var cellMap = {};
     level.cells.forEach(function (cell) { cellMap[cell.r + ',' + cell.c] = cell; });
@@ -150,6 +181,9 @@
     // 余额不足时按钮视觉变灰(点击仍会弹"金币不足"提示)
     document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
     document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
+
+    // 第 7a 步:render 末尾(#pool/#actions 已渲染好)按可用高度计算 --cell
+    fitBoard(game);
   }
 
   // 释义弹窗:列出包含选中格的所有成语(交叉格显示多条),每条 = 成语 + 释义。
@@ -345,6 +379,8 @@
     document.getElementById('app').hidden = (name !== 'game');
     if (name === 'home') renderHome();
     if (name === 'levels') renderLevels();
+    // 第 7a 步:回到游戏界面时 #app 刚显示(隐藏时 offsetHeight 全为 0 测不到),重算一次
+    if (name === 'game' && window.__game) fitBoard(window.__game);
   }
 
   // 事件只绑一次(事件委托):render 每次重建全部元素,逐格绑会丢/重复。
@@ -484,6 +520,15 @@
         // 第 5b 步:三界面切换 + 解锁状态(供审查用)。数据加载完成后先进主界面。
         window.__showScreen = showScreen;
         window.__getUnlocked = function () { return unlocked; };
+        // 第 7a 步:窗口尺寸/横竖屏变化时重算 --cell(只绑一次);
+        // 隐藏状态(#app 有 hidden)下测不到高度,故只在游戏界面可见时调用。
+        function refit() {
+          if (window.__game && !document.getElementById('app').hasAttribute('hidden')) {
+            fitBoard(window.__game);
+          }
+        }
+        window.addEventListener('resize', refit);
+        window.addEventListener('orientationchange', refit);
         showScreen('home');
       })
       .catch(function () {

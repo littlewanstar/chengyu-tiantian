@@ -1,5 +1,5 @@
 // 每次发布新版本时把 CACHE 的版本号加一(例如 chengyu-tiantian-v2)。
-var CACHE = 'chengyu-tiantian-v1';
+var CACHE = 'chengyu-tiantian-v2';
 
 var PRECACHE = [
   './',
