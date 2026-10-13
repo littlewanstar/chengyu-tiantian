@@ -440,3 +440,24 @@ main {
   color: #f5efe0;                 /* 米黄字 */
 }
 
+/* 第 7b 步:解锁全部关卡按钮 —— 同 .script-btn 风格,撑满一行,高度至少 44px */
+.unlock-all-btn {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 16px;
+  background: #f5efe0;            /* 米黄底 */
+  color: #2f4f5f;                 /* 黛青字 */
+  border: 1px solid #2f4f5f;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.unlock-all-btn:disabled {
+  background: #d8d8d8;            /* 灰底 */
+  color: #999;                    /* 淡字 */
+  border-color: #bbb;
+  cursor: default;
+}
+

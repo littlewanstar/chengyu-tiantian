@@ -281,6 +281,26 @@
     });
     panel.appendChild(row);
 
+    // 第 7b 步:解锁全部关卡按钮(独立一行,事件直接绑在按钮上,同字体按钮做法)
+    var unlockRow = el('div', 'settings-row');
+    var unlockBtn = el('button', 'unlock-all-btn');
+    unlockBtn.type = 'button';
+    if (unlocked >= levels.length - 1) {         // 面板每次重建:创建时直接判断已全解锁
+      unlockBtn.disabled = true;
+      unlockBtn.textContent = '已全部解锁';
+    } else {
+      unlockBtn.textContent = '解锁全部关卡';
+      unlockBtn.addEventListener('click', function () {
+        unlocked = levels.length - 1;            // 全部可点
+        save();                                  // 存档(不动 currentIndex/coins/script)
+        showToast('已解锁全部关卡');
+        unlockBtn.disabled = true;               // 变禁用,不可再点
+        unlockBtn.textContent = '已全部解锁';
+      });
+    }
+    unlockRow.appendChild(unlockBtn);
+    panel.appendChild(unlockRow);
+
     var close = el('button', 'meaning-close');  // 复用关闭按钮样式
     close.type = 'button';
     close.textContent = '关闭';
