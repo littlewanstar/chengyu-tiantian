@@ -790,3 +790,38 @@ main {
 }
 .home-bonus-label { font-size: 20px; letter-spacing: 4px; }
 .home-bonus-sub { font-size: 13px; color: #6b4c12; letter-spacing: 1px; }
+
+/* ===== 第 G3c-c1 步:府邸页骨架 + 主页四个圆钮 ===== */
+#estate[hidden] { display: none; }
+#estate { max-width: 430px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #f5efe0; }
+#estate-topbar { position: relative; display: flex; align-items: center; justify-content: space-between; background: #2f4f5f; color: #fff; padding: 10px 14px; }
+#btn-estate-back { background: none; border: none; color: #fff; font-size: 26px; line-height: 1; width: 40px; font-family: inherit; cursor: pointer; }
+#estate-title { position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; font-size: 18px; font-weight: bold; }
+#estate-coins { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: bold; }
+#estate-body { flex: 1; padding: 14px 16px 24px; }
+.estate-hero { text-align: center; }
+.estate-hero .estate-house svg { width: 78%; max-width: 280px; height: auto; }
+.estate-house-name { font-size: 22px; font-weight: bold; color: #4a3410; margin-top: 4px; letter-spacing: 4px; }
+.estate-sub { font-size: 13px; color: #8a7a5a; margin-top: 4px; }
+.home-row { gap: 12px; }
+#home .home-round { width: 68px; height: 68px; font-size: 16px; }
+
+.estate-card { background:#fffaf0; border:1px solid #e6d9b8; border-radius:12px; padding:12px 14px; margin-top:14px; }
+.estate-row { display:flex; justify-content:space-between; font-size:15px; color:#3a2f1c; }
+.estate-bar { height:10px; background:#eadfc4; border-radius:5px; overflow:hidden; margin-top:8px; }
+.estate-bar-fill { height:100%; background:#c99a2e; border-radius:5px; }
+.estate-note { font-size:12px; color:#8a7a5a; margin-top:6px; }
+.estate-pond { display:flex; align-items:center; justify-content:space-between; }
+.estate-collect { min-width:72px; height:36px; border:none; border-radius:18px; background:#c99a2e; color:#fff; font-size:15px; }
+.estate-collect.is-empty { background:#cfc5a8; }
+
+/* 第 G3c-c3a 步:附属建筑列表 */
+.estate-section-title { margin:20px 2px 6px; font-size:15px; font-weight:bold; color:#5a4a2a; }
+.estate-item { display:flex; align-items:center; gap:12px; background:#fffaf0; border:1px solid #e6d9b8; border-radius:12px; padding:10px 12px; margin-top:10px; }
+.estate-item .estate-icon { flex:0 0 52px; width:52px; height:52px; }
+.estate-item .estate-icon svg { width:100%; height:100%; }
+.estate-item > div:nth-child(2) { flex:1; min-width:0; }
+.estate-item-name { font-size:16px; color:#3a2f1c; }
+.estate-buy { flex:0 0 auto; min-width:84px; height:36px; border:none; border-radius:18px; background:#c99a2e; color:#fff; font-size:14px; }
+.estate-buy.is-poor { background:#cfc5a8; }
+.estate-buy.is-locked, .estate-buy.is-max { background:#e6dfc9; color:#8a7a5a; }

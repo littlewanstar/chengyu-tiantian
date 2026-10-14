@@ -1498,6 +1498,10 @@
     ci.textContent = '签到';
     if (!checkinStatus().claimedToday) ci.classList.add('has-dot');
     row.appendChild(ci);
+    var est = el('button', 'home-btn home-round');
+    est.type = 'button';
+    est.textContent = '府邸';              // textContent 恰好"府邸"（点击委托靠它区分）
+    row.appendChild(est);
     var set = el('button', 'home-btn home-round');
     set.type = 'button';
     set.textContent = '设置';                   // textContent 恰好"设置"
@@ -1521,13 +1525,202 @@
   }
 
   // showScreen('home' | 'levels' | 'game'):切换三个容器的 hidden;home/levels 每次进入重绘。
+  function renderEstate() {
+    var box = document.getElementById('estate');
+    box.textContent = '';                                   // 每次进入重绘
+    var top = el('header');
+    top.id = 'estate-topbar';
+    var back = el('button');
+    back.id = 'btn-estate-back';
+    back.type = 'button';
+    back.setAttribute('aria-label', '返回');
+    back.innerHTML = '&#8249;';
+    back.addEventListener('click', function () { showScreen('home'); });
+    var title = el('div');
+    title.id = 'estate-title';
+    title.textContent = '府邸';
+    var cw = el('div');
+    cw.id = 'estate-coins';
+    cw.appendChild(el('span', 'coin-dot'));
+    var cn = el('span');
+    cn.id = 'estate-coins-num';
+    cn.textContent = String(coins);
+    cw.appendChild(cn);
+    top.appendChild(back);
+    top.appendChild(title);
+    top.appendChild(cw);
+    box.appendChild(top);
+
+    var body = el('div');
+    body.id = 'estate-body';
+    var hero = el('div', 'estate-hero');
+    var hi = houseIndex();
+    var house = el('div', 'estate-house');
+    house.innerHTML = (window.HOUSE_SVG && window.HOUSE_SVG[hi]) || '';   // 静态 SVG 代码，不是用户输入
+    var nm = el('div', 'estate-house-name');
+    nm.textContent = HOUSES[hi].name;
+    var si = ESTATE.slotInfo(estate, hi);
+    var sub = el('div', 'estate-sub');
+    sub.textContent = '附属 ' + si.annexUsed + '/' + si.annexMax + ' · 陈设 ' + si.decorUsed + '/' + si.decorMax;
+    hero.appendChild(house);
+    hero.appendChild(nm);
+    hero.appendChild(sub);
+    body.appendChild(hero);
+
+    // 第 G3c-c2 步:雅致度进度条 + 免费提示提示卡
+    var ecard = el('div', 'estate-card estate-elegance');
+    var erow = el('div', 'estate-row');
+    var elft = el('span');
+    elft.textContent = '雅致度 ' + ESTATE.elegance(estate);
+    var ergt = el('span');
+    ergt.textContent = '下一档 ' + ESTATE.nextEleganceAt(estate);
+    erow.appendChild(elft);
+    erow.appendChild(ergt);
+    var bar = el('div', 'estate-bar');
+    var fill = el('div', 'estate-bar-fill');
+    fill.style.width = ((ESTATE.elegance(estate) % ESTATE.ELEGANCE_STEP) / ESTATE.ELEGANCE_STEP * 100) + '%';
+    bar.appendChild(fill);
+    var enote = el('div', 'estate-note');
+    enote.textContent = '免费提示 ' + estate.freeHints + ' 次(每满 ' + ESTATE.ELEGANCE_STEP + ' 点雅致度送 1 次)';
+    ecard.appendChild(erow);
+    ecard.appendChild(bar);
+    ecard.appendChild(enote);
+    body.appendChild(ecard);
+
+    // 第 G3c-c2 步:池塘收获卡(仅当 pondDaily > 0 时显示)
+    ESTATE.tickPond(estate, todayStr());
+    if (ESTATE.pondDaily(estate) > 0) {
+      var pcard = el('div', 'estate-card estate-pond');
+      var ptexts = el('div');
+      var p1 = el('div', 'estate-row');   // 左对齐文字行
+      var p1l = el('span');
+      p1l.textContent = '池塘 · 每日 +' + ESTATE.pondDaily(estate) + ' 金币';
+      p1.appendChild(p1l);
+      var p2 = el('div', 'estate-note');
+      p2.textContent = '待收 ' + estate.pondStock + ' 金币';
+      ptexts.appendChild(p1);
+      ptexts.appendChild(p2);
+      var btn = el('button', 'estate-collect');
+      btn.type = 'button';
+      btn.textContent = '收获';
+      if (estate.pondStock === 0) btn.classList.add('is-empty');
+      btn.addEventListener('click', function () {
+        var r = estateCollectPond();
+        if (r.ok) showToast('收获 ' + r.gained + ' 金币');
+        else showToast('池塘里还没有金币');
+        renderEstate();                     // 重绘:同时刷新顶栏金币
+      });
+      pcard.appendChild(ptexts);
+      pcard.appendChild(btn);
+      body.appendChild(pcard);
+    }
+
+    // 第 G3c-c3a 步:附属建筑列表(建造/升级)
+    var stitle = el('div', 'estate-section-title');
+    stitle.textContent = '附属建筑';
+    body.appendChild(stitle);
+    ESTATE.ANNEX.forEach(function (a) {
+      var lv = estate.annex[a.id] || 0;
+      var item = el('div', 'estate-item');
+      var icon = el('div', 'estate-icon');
+      icon.innerHTML = ESTATE_ART.get('annex', a.id);   // 静态 SVG 代码，不是用户输入
+      var mid = el('div');
+      var name = el('div', 'estate-item-name');
+      name.textContent = a.name + '  ' + (lv > 0 ? 'Lv' + lv + '/' + ESTATE.MAX_LEVEL : '未建');
+      var note = el('div', 'estate-note');
+      note.textContent = a.desc;
+      mid.appendChild(name);
+      mid.appendChild(note);
+      var buy = el('button', 'estate-buy');
+      buy.type = 'button';
+      if (a.tier > houseIndex()) {
+        buy.textContent = '需' + HOUSES[a.tier].name;
+        buy.classList.add('is-locked');
+        buy.disabled = true;
+      } else if (lv >= ESTATE.MAX_LEVEL) {
+        buy.textContent = '已满级';
+        buy.classList.add('is-max');
+        buy.disabled = true;
+      } else {
+        buy.textContent = (lv === 0 ? '建造 ' : '升级 ') + a.costs[lv] + '金';
+        if (coins < a.costs[lv]) buy.classList.add('is-poor');   // 只是变灰，仍可点
+        buy.addEventListener('click', function () {
+          var r = estateBuyAnnex(a.id);
+          if (r.ok) {
+            showToast((lv === 0 ? '建成 ' : '升级 ') + a.name + (r.newHints > 0 ? '，获得免费提示 ×' + r.newHints : ''));
+          } else if (r.reason === 'coins') {
+            showToast('金币不够');
+          } else if (r.reason === 'slots') {
+            showToast('附属位已满，请先升级房子');
+          } else {
+            showToast('暂时不能建造');
+          }
+          renderEstate();                     // 重绘:无论成败都刷新顶栏金币与按钮状态
+        });
+      }
+      item.appendChild(icon);
+      item.appendChild(mid);
+      item.appendChild(buy);
+      body.appendChild(item);
+    });
+
+    // 第 G3c-c3b 步:陈设列表(购置)
+    var dtitle = el('div', 'estate-section-title');
+    dtitle.textContent = '陈设 ' + si.decorUsed + '/' + si.decorMax;
+    body.appendChild(dtitle);
+    ESTATE.DECOR.forEach(function (d) {
+      var owned = estate.decor.indexOf(d.id) !== -1;
+      var item2 = el('div', 'estate-item');
+      var icon2 = el('div', 'estate-icon');
+      icon2.innerHTML = ESTATE_ART.get('decor', d.id);   // 静态 SVG 代码，不是用户输入
+      var mid2 = el('div');
+      var name2 = el('div', 'estate-item-name');
+      name2.textContent = d.name;
+      var note2 = el('div', 'estate-note');
+      note2.textContent = '雅致度 +' + d.elegance;
+      mid2.appendChild(name2);
+      mid2.appendChild(note2);
+      var buy2 = el('button', 'estate-buy');
+      buy2.type = 'button';
+      if (owned) {
+        buy2.textContent = '已购置';
+        buy2.classList.add('is-max');
+        buy2.disabled = true;
+      } else {
+        buy2.textContent = '购置 ' + d.cost + '金';
+        if (coins < d.cost) buy2.classList.add('is-poor');   // 只是变灰，仍可点
+        buy2.addEventListener('click', function () {
+          var r = estateBuyDecor(d.id);
+          if (r.ok) {
+            showToast('购置 ' + d.name + (r.newHints > 0 ? '，获得免费提示 ×' + r.newHints : ''));
+          } else if (r.reason === 'coins') {
+            showToast('金币不够');
+          } else if (r.reason === 'slots') {
+            showToast('陈设位已满，请先升级房子');
+          } else {
+            showToast('暂时不能购置');
+          }
+          renderEstate();                     // 重绘:无论成败都刷新顶栏金币与按钮状态
+        });
+      }
+      item2.appendChild(icon2);
+      item2.appendChild(mid2);
+      item2.appendChild(buy2);
+      body.appendChild(item2);
+    });
+
+    box.appendChild(body);
+  }
+
   function showScreen(name) {
     if (name !== 'game' && bonusRank) endBonus();     // 离开游戏界面 = 放弃奖励关(不领奖)
     document.getElementById('home').hidden = (name !== 'home');
     document.getElementById('level-select').hidden = (name !== 'levels');
     document.getElementById('app').hidden = (name !== 'game');
+    document.getElementById('estate').hidden = (name !== 'estate');
     if (name === 'home') renderHome();
     if (name === 'levels') renderLevels();
+    if (name === 'estate') renderEstate();
     // 第 7a 步:回到游戏界面时 #app 刚显示(隐藏时 offsetHeight 全为 0 测不到),重算一次
     if (name === 'game' && window.__game) fitBoard(window.__game);
   }
@@ -1631,6 +1824,7 @@
       if (btn.querySelector('.home-btn-sub')) { showScreen('game'); return; }  // 继续游戏
       if (btn.textContent === '选关') { showScreen('levels'); return; }
       if (btn.textContent === '签到') { openCheckinPanel(); return; }
+      if (btn.textContent === '府邸') { showScreen('estate'); return; }
       openSettingsPanel();                                                      // 设置
     });
 
