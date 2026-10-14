@@ -341,7 +341,17 @@
   }
 
   // 奖励关用哪一关(序号,0 开始)。暂用尾部关卡,之后会换成专用奖励关。
-  var BONUS_LEVEL_FROM_END = { '书生': 1, '儒生': 2, '秀才': 3, '举人': 4, '状元': 5 };
+  var BONUS_LEVEL_FROM_END = { '书生': 1, '儒生': 2, '秀才': 3, '举人': 4, '状元': 5 };   // 仅当 levels.json 没有 bonus 时的备用
+  var BONUS_ORDER = { '书生': 0, '儒生': 1, '秀才': 2, '举人': 3, '状元': 4 };           // 专用奖励关(levels.json 的 bonus 数组)下标
+  var bonusLevels = [];                                                                  // 专用奖励关,start() 里加载
+  // 取某称号的奖励关:优先用专用奖励关,没有则退回尾部关卡
+  function bonusLevelFor(rankName) {
+    var k = BONUS_ORDER[rankName];
+    if (k === undefined) return null;
+    if (bonusLevels[k]) return bonusLevels[k];
+    var i = bonusLevelIndex(rankName);
+    return i >= 0 && levels[i] ? levels[i] : null;
+  }
   function bonusLevelIndex(rankName) {
     var k = BONUS_LEVEL_FROM_END[rankName];
     if (!k) return -1;
@@ -1397,13 +1407,13 @@
   // 奖励关(G2b):进入/退出。startBonus 不改 currentIndex、不 save;endBonus 恢复进入前的游戏实例。
   function startBonus(rank) {
     if (bonusAvailable().indexOf(rank) === -1) return;       // 不可领:忽略
-    var idx = bonusLevelIndex(rank);
-    if (idx < 0 || idx >= levels.length) return;
+    var bonusLv = bonusLevelFor(rank);
+    if (!bonusLv) return;
     bonusPrevGame = window.__game;
     bonusPrevRewarded = rewarded;
     bonusRank = rank;
     rewarded = false;
-    window.__game = Game.createGame(levels[idx]);
+    window.__game = Game.createGame(bonusLv);
     render(window.__game, script);        // 注意:不要调用 save(),不要改 currentIndex
     showScreen('game');
   }
@@ -1520,8 +1530,12 @@
       // 第 E2 步:开关开着时全部可点;否则按真实进度 unlocked
       if (!unlockAll && i > unlocked) tile.classList.add('locked');   // 未解锁:灰底淡字,点击无反应
       else if (i === currentIndex) tile.classList.add('current');   // 当前关:朱红边框
+      if (cleared.indexOf(i) !== -1) tile.classList.add('done');    // 第 H 步:已通关的关卡数字显示金色
       grid.appendChild(tile);
     });
+    // 第 H 步:300 关很长,进入选关时把当前关滚动到屏幕中间
+    var curTile = grid.querySelector('.level-tile.current');
+    if (curTile && curTile.scrollIntoView) curTile.scrollIntoView({ block: 'center' });
   }
 
   // showScreen('home' | 'levels' | 'game'):切换三个容器的 hidden;home/levels 每次进入重绘。
@@ -2267,6 +2281,7 @@
       })
       .then(function (json) {
         levels = Game.loadLevels(json);           // 提到外层变量(第 4c 步规则 2)
+        bonusLevels = (json && Array.isArray(json.bonus)) ? Game.loadLevels({ levels: json.bonus }) : [];   // 第 H 步:专用奖励关
         ensureProfile(function () {
         var saved = load();                       // 启动先读存档
         cleared = loadProgress();                 // 第 C1 步:通关记录(levels 已加载,可安全读/迁移)

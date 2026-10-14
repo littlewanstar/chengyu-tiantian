@@ -825,3 +825,6 @@ main {
 .estate-buy { flex:0 0 auto; min-width:84px; height:36px; border:none; border-radius:18px; background:#c99a2e; color:#fff; font-size:14px; }
 .estate-buy.is-poor { background:#cfc5a8; }
 .estate-buy.is-locked, .estate-buy.is-max { background:#e6dfc9; color:#8a7a5a; }
+
+/* 第 H 步:已通关的关卡数字显示金色 */
+.level-tile.done { color: #f0d58a; }
