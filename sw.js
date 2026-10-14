@@ -1,5 +1,5 @@
 // 每次发布新版本时把 CACHE 的版本号加一(例如 chengyu-tiantian-v5)。
-var CACHE = 'chengyu-tiantian-v11';
+var CACHE = 'chengyu-tiantian-v12';
 
 var PRECACHE = [
   './',
@@ -12,6 +12,7 @@ var PRECACHE = [
   'houses.js',
   'guests.js',
   'music.js',
+  'estate.js',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',

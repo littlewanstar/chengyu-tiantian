@@ -230,12 +230,14 @@
   var bonusRank = null;          // 正在玩的奖励关对应的称号名;null 表示不在奖励关
   var bonusPrevGame = null;      // 进入奖励关前的 window.__game,退出时恢复
   var bonusPrevRewarded = false; // 进入奖励关前的 rewarded 值
+  var estate = ESTATE.newState();   // 府邸状态，存放在 PROGRESS_KEY 的 JSON 里（字段 estate）
 
   // 从存档读通关记录。迁移:PROGRESS_KEY 不存在(老玩家)时,用主存档的当前关序号
   // level 生成 [0,1,...,level-1] 并立即写回;PROGRESS_KEY 存在但坏了(解析失败/
   // 不是对象)则返回 [],不迁移。调用前提:levels 已加载(见 start() 里 load() 之后)。
   function loadProgress() {
     bonusClaimed = [];
+    estate = ESTATE.newState();
     var raw = null;
     try { raw = localStorage.getItem(PROGRESS_KEY); } catch (e) { return []; }
     if (raw === null) {                                   // 老玩家:从主存档迁移
@@ -281,12 +283,13 @@
           bonusClaimed.push(b);
         }
       }
+      estate = ESTATE.sanitize(p.estate);
       return out.slice();
     } catch (e) { return []; }                            // 坏了:空记录,不迁移
   }
 
   function saveProgress() {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: cleared, bonusClaimed: bonusClaimed })); } catch (e) {}
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: cleared, bonusClaimed: bonusClaimed, estate: estate })); } catch (e) {}
   }
 
   // 通关时记录:合法整数且不在 cleared 里才 push(去重),push 后重排升序并写盘。
@@ -363,8 +366,54 @@
   window.__bonusLevelIndex = bonusLevelIndex;
   window.__markBonusClaimed = markBonusClaimed;
   window.__bonusClaimedList = function () { return bonusClaimed.slice(); };
+
+  // 府邸购买/收获的包装(G3b):先调 ESTATE 纯逻辑,成功才改 coins 并存档、刷新金币显示和按钮价格。
+  function estateAfterChange() {
+    saveProgress(); save();
+    var cn = document.getElementById('coins-num'); if (cn) cn.textContent = String(coins);
+    refreshActionButtons();
+  }
+  function estateBuyAnnex(id) {
+    ESTATE.tickPond(estate, todayStr());                 // 先按旧等级结算池塘
+    var r = ESTATE.buyAnnex(estate, id, houseIndex(), coins);
+    if (r.ok) { coins = r.coins; estateAfterChange(); }
+    return r;
+  }
+  function estateBuyDecor(id) {
+    var r = ESTATE.buyDecor(estate, id, houseIndex(), coins);
+    if (r.ok) { coins = r.coins; estateAfterChange(); }
+    return r;
+  }
+  function estateCollectPond() {
+    var r = ESTATE.collectPond(estate, todayStr(), coins);
+    if (r.ok) { coins = r.coins; estateAfterChange(); }
+    return r;
+  }
+  window.__estate = function () { return estate; };
+  window.__estateBuyAnnex = estateBuyAnnex;
+  window.__estateBuyDecor = estateBuyDecor;
+  window.__estateCollectPond = estateCollectPond;
+  window.__houseIndex = houseIndex;
+  window.__hintCost = hintCostNow;
+  window.__meaningCost = meaningCostNow;
   window.__bonusRank = function () { return bonusRank; };
   window.__startBonus = startBonus;
+
+  // ---------- 府邸经济接线(第 G3b 步) ----------
+  function houseIndex() { return HOUSES.indexOf(levelFromTable(HOUSES, cleared.length)); }
+  function hintCostNow() { return ESTATE.hintCost(estate, 60); }
+  function meaningCostNow() { return ESTATE.meaningCost(estate, 30); }
+  // 刷新"提示/释义"按钮的灰态和价格文字
+  function refreshActionButtons() {
+    var hb = document.getElementById('btn-hint'), mb = document.getElementById('btn-meaning');
+    if (!hb || !mb) return;
+    var free = estate.freeHints > 0;
+    hb.classList.toggle('disabled', !free && coins < hintCostNow());
+    mb.classList.toggle('disabled', coins < meaningCostNow());
+    var hc = hb.querySelector('.action-cost'), mc = mb.querySelector('.action-cost');
+    if (hc) hc.textContent = free ? ('免费×' + estate.freeHints) : String(hintCostNow());
+    if (mc) mc.textContent = String(meaningCostNow());
+  }
 
   // ---------- 存档(SPEC 第 6 节):所有读写包 try/catch,坏数据回默认值 ----------
   // levelOverride(第 5a 步):checkWin 发奖后传入"下一关"序号(最后一关传 0),
@@ -512,8 +561,7 @@
     });
 
     // 余额不足时按钮视觉变灰(点击仍会弹"金币不足"提示)
-    document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
-    document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
+    refreshActionButtons();
 
     // 第 A2a 步:用本次 render 结果重建 prevFilled/prevDone,记录本次关卡 id
     prevFilled = {};
@@ -1303,8 +1351,7 @@
       var bOld = coins;
       coins += bReward;
       markBonusClaimed(thisBonus);
-      document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
-      document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
+      refreshActionButtons();
       save();                      // 不带参数:level 仍是 currentIndex,unlocked 不变
       celebrate(bReward, bOld);
       setTimeout(function () {
@@ -1321,8 +1368,7 @@
     // 第 5b 步:通关解锁下一关(不超过最后一关);重新开始(最后一关通关回第 1 关)时不重置
     if (currentIndex <= unlocked) unlocked = Math.min(Math.max(unlocked, currentIndex + 1), levels.length - 1);   // 只有按顺序推进才提升真实进度(开关打开时跳关不算)
     // 第 A2b 步:不整盘重画(否则最后一格弹跳动画被抹掉),只更新金币相关 UI
-    document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
-    document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
+    refreshActionButtons();
     // 第 5a 步:发奖后存"下一关"序号(最后一关存 0),内存 currentIndex 不变;
     // 通关后未点"下一关"就刷新 → 进下一关,不会重复领奖励。
     // 第 C2a 步:通关前记下旧称号/府邸,markCleared 后对比,变化则生成晋升提示
@@ -1529,13 +1575,16 @@
       if (res.result === 'correct') checkWin();
     });
 
-    // 提示按钮(60 金币):判断全走 game.hint(),ui 只扣币和提示
+    // 提示按钮(提示费见 hintCostNow,府邸藏书阁可降价;免费提示优先):判断全走 game.hint(),ui 只扣币和提示
     document.getElementById('btn-hint').addEventListener('click', function () {
       var game = window.__game;
-      if (coins < 60) { showToast('金币不足'); return; }   // 不扣币,什么都不填
+      var free = estate.freeHints > 0;
+      var cost = hintCostNow();
+      if (!free && coins < cost) { showToast('金币不足'); return; }   // 不扣币,什么都不填
       var h = game.hint();
-      if (h === null) return;                              // 没有空格可填:不扣币
-      coins -= 60;
+      if (h === null) return;                                         // 没有空格可填:不扣币、不用免费次数
+      if (free) { ESTATE.useFreeHint(estate); saveProgress(); showToast('使用了一次免费提示'); }
+      else { coins -= cost; }
       playSound('hint');                                 // 第 A3a 步:扣币成功后播提示音
       render(game, script);
       save();                                              // 金币变化后存档
@@ -1547,14 +1596,15 @@
       var game = window.__game;
       var sel = game.state.selected;
       if (!sel) { showToast('请先选中一个空格'); return; } // 不扣币
-      if (coins < 30) { showToast('金币不足'); return; }   // 不扣币
+      var mcost = meaningCostNow();
+      if (coins < mcost) { showToast('金币不足'); return; }   // 不扣币
       var words = [];
       game.level.words.forEach(function (w) {
         for (var i = 0; i < w.cells.length; i++) {
           if (w.cells[i][0] === sel.r && w.cells[i][1] === sel.c) { words.push(w); break; }
         }
       });
-      coins -= 30;
+      coins -= mcost;
       render(game, script);
       save();                                              // 金币变化后存档
       openMeaningModal(words);
@@ -1800,6 +1850,7 @@
     prevDone = {};
     cleared = [];
     bonusClaimed = [];
+    estate = ESTATE.newState();
     vocab = [];
     if (window.__game) {                                       // start() 之前调用时没有游戏实例
       window.__game = Game.createGame(levels[currentIndex]);
