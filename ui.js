@@ -226,11 +226,16 @@
   ];
 
   var cleared = [];   // 已通关关卡序号的数组(不重复的整数,按从小到大排序)
+  var bonusClaimed = [];   // 已领取奖励关的称号名数组,如 ['书生']
+  var bonusRank = null;          // 正在玩的奖励关对应的称号名;null 表示不在奖励关
+  var bonusPrevGame = null;      // 进入奖励关前的 window.__game,退出时恢复
+  var bonusPrevRewarded = false; // 进入奖励关前的 rewarded 值
 
   // 从存档读通关记录。迁移:PROGRESS_KEY 不存在(老玩家)时,用主存档的当前关序号
   // level 生成 [0,1,...,level-1] 并立即写回;PROGRESS_KEY 存在但坏了(解析失败/
   // 不是对象)则返回 [],不迁移。调用前提:levels 已加载(见 start() 里 load() 之后)。
   function loadProgress() {
+    bonusClaimed = [];
     var raw = null;
     try { raw = localStorage.getItem(PROGRESS_KEY); } catch (e) { return []; }
     if (raw === null) {                                   // 老玩家:从主存档迁移
@@ -260,12 +265,28 @@
       }
       out.sort(function (a, b) { return a - b; });        // 去重后升序排序
       cleared = out;
+      // 读 bonusClaimed:必须是字符串、是 RANKS(第 1 项起)的 name、不重复;
+      // p.bonusClaimed 不存在或不是数组则保持 []
+      if (Array.isArray(p.bonusClaimed)) {
+        var seenB = {};
+        for (var k = 0; k < p.bonusClaimed.length; k++) {
+          var b = p.bonusClaimed[k];
+          if (typeof b !== 'string' || seenB[b]) continue;
+          var okRank = false;
+          for (var m = 1; m < RANKS.length; m++) {        // 跳过 '学童'(RANKS[0])
+            if (RANKS[m].name === b) { okRank = true; break; }
+          }
+          if (!okRank) continue;
+          seenB[b] = true;
+          bonusClaimed.push(b);
+        }
+      }
       return out.slice();
     } catch (e) { return []; }                            // 坏了:空记录,不迁移
   }
 
   function saveProgress() {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: cleared })); } catch (e) {}
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: cleared, bonusClaimed: bonusClaimed })); } catch (e) {}
   }
 
   // 通关时记录:合法整数且不在 cleared 里才 push(去重),push 后重排升序并写盘。
@@ -305,9 +326,45 @@
              nextMin: next ? next.min : null };
   }
 
+  // 可领取的奖励关称号:RANKS 第 1 项起,min <= 已通关数,且不在 bonusClaimed 里
+  function bonusAvailable() {
+    var out = [];
+    for (var i = 1; i < RANKS.length; i++) {
+      if (RANKS[i].min <= cleared.length && bonusClaimed.indexOf(RANKS[i].name) === -1) {
+        out.push(RANKS[i].name);
+      }
+    }
+    return out;
+  }
+
+  // 奖励关用哪一关(序号,0 开始)。暂用尾部关卡,之后会换成专用奖励关。
+  var BONUS_LEVEL_FROM_END = { '书生': 1, '儒生': 2, '秀才': 3, '举人': 4, '状元': 5 };
+  function bonusLevelIndex(rankName) {
+    var k = BONUS_LEVEL_FROM_END[rankName];
+    if (!k) return -1;
+    return Math.max(0, levels.length - k);
+  }
+
+  // 记录已领取:只接受合法的、尚未领取的称号名;成功返回 true 并 saveProgress()
+  function markBonusClaimed(rankName) {
+    if (typeof rankName !== 'string') return false;
+    var ok = false;
+    for (var i = 1; i < RANKS.length; i++) if (RANKS[i].name === rankName) ok = true;
+    if (!ok || bonusClaimed.indexOf(rankName) !== -1) return false;
+    bonusClaimed.push(rankName);
+    saveProgress();
+    return true;
+  }
+
   window.__markCleared = markCleared;
   window.__rankInfo = rankInfo;
   window.__houseInfo = houseInfo;
+  window.__bonusAvailable = bonusAvailable;
+  window.__bonusLevelIndex = bonusLevelIndex;
+  window.__markBonusClaimed = markBonusClaimed;
+  window.__bonusClaimedList = function () { return bonusClaimed.slice(); };
+  window.__bonusRank = function () { return bonusRank; };
+  window.__startBonus = startBonus;
 
   // ---------- 存档(SPEC 第 6 节):所有读写包 try/catch,坏数据回默认值 ----------
   // levelOverride(第 5a 步):checkWin 发奖后传入"下一关"序号(最后一关传 0),
@@ -397,7 +454,7 @@
     var animate = (lastLevelId === level.id);   // 第 A2a 步:换关(含首次)不播放动画
 
     // 顶栏:第 N 关 + 金币(金币来自 ui 里的 coins 变量)
-    document.getElementById('level-title').textContent = '第 ' + level.id + ' 关';
+    document.getElementById('level-title').textContent = bonusRank ? ('奖励关 · ' + bonusRank) : ('第 ' + level.id + ' 关');
     document.getElementById('coins-num').textContent = String(coins);
 
     // 已完成成语的格子集合(第 1 关开始时应为空,逻辑照写)
@@ -502,12 +559,12 @@
 
   // ---------- 通关弹窗(第 4c 步):复用 #meaning-overlay 样式,另建 #win-overlay ----------
   // 不能点遮罩关闭(不绑遮罩 click),只能点"下一关"按钮。
-  function openWinModal(reward) {
+  function openWinModal(reward, isBonus) {
     var panel = document.getElementById('win-panel');
     panel.textContent = '';                     // 每次重建内容
 
     var h = el('div', 'win-title');
-    h.textContent = '通关!';
+    h.textContent = isBonus ? '奖励关完成!' : '通关!';
     panel.appendChild(h);
 
     window.__game.level.words.forEach(function (w) {
@@ -522,8 +579,23 @@
     });
 
     var gain = el('div', 'win-reward');
-    gain.textContent = '获得 ' + reward + ' 金币';
+    gain.textContent = isBonus ? ('奖励关双倍:获得 ' + reward + ' 金币') : ('获得 ' + reward + ' 金币');
     panel.appendChild(gain);
+
+    if (isBonus) {   // G2b:奖励关弹窗只有一个"回主页"按钮(不进下一关、不改 currentIndex)
+      var bactions = el('div', 'win-actions');
+      var bhome = el('button', 'meaning-close');
+      bhome.type = 'button';
+      bhome.textContent = '回主页';
+      bhome.addEventListener('click', function () {
+        closeWinModal();
+        showScreen('home');                     // showScreen 内部自动 endBonus
+      });
+      bactions.appendChild(bhome);
+      panel.appendChild(bactions);
+      document.getElementById('win-overlay').hidden = false;
+      return;
+    }
 
     var last = currentIndex >= levels.length - 1;   // 最后一关:按钮变"重新开始"
     // 第 G1 步:两个按钮——主按钮"回主页"(先切到下一关再回主页),次按钮保留原"下一关"快捷方式。
@@ -1225,6 +1297,23 @@
     if (!game.isComplete()) return;
     if (rewarded) return;
     rewarded = true;
+    if (bonusRank) {
+      var thisBonus = bonusRank;
+      var bReward = (20 + (game.state.errors === 0 ? 10 : 0)) * 2;   // 双倍:零错 60,有错 40
+      var bOld = coins;
+      coins += bReward;
+      markBonusClaimed(thisBonus);
+      document.getElementById('btn-hint').classList.toggle('disabled', coins < 60);
+      document.getElementById('btn-meaning').classList.toggle('disabled', coins < 30);
+      save();                      // 不带参数:level 仍是 currentIndex,unlocked 不变
+      celebrate(bReward, bOld);
+      setTimeout(function () {
+        if (bonusRank !== thisBonus) return;                         // 已离开奖励关:不弹
+        if (document.getElementById('app').hasAttribute('hidden')) return;
+        openWinModal(bReward, true);
+      }, 650);
+      return;                      // 不走下面的正常通关逻辑(不 markCleared、不加成语册、不晋升、不 unlocked)
+    }
     var reward = 20;                              // SPEC 第 3 节第 8 条:基础 20
     if (game.state.errors === 0) reward += 10;    // 本关零错额外 +10
     var oldCoins = coins;
@@ -1257,6 +1346,29 @@
       // 第 C2a 步:弹窗出现的同一时刻展示晋升提示(有则展示一次,随即置空)
       if (pendingPromo) { showToast(pendingPromo); playSound('win'); pendingPromo = ''; }
     }, 650);
+  }
+
+  // 奖励关(G2b):进入/退出。startBonus 不改 currentIndex、不 save;endBonus 恢复进入前的游戏实例。
+  function startBonus(rank) {
+    if (bonusAvailable().indexOf(rank) === -1) return;       // 不可领:忽略
+    var idx = bonusLevelIndex(rank);
+    if (idx < 0 || idx >= levels.length) return;
+    bonusPrevGame = window.__game;
+    bonusPrevRewarded = rewarded;
+    bonusRank = rank;
+    rewarded = false;
+    window.__game = Game.createGame(levels[idx]);
+    render(window.__game, script);        // 注意:不要调用 save(),不要改 currentIndex
+    showScreen('game');
+  }
+  function endBonus() {
+    if (!bonusRank) return;
+    bonusRank = null;
+    rewarded = bonusPrevRewarded;
+    if (bonusPrevGame) window.__game = bonusPrevGame;
+    else window.__game = Game.createGame(levels[currentIndex]);
+    bonusPrevGame = null;
+    render(window.__game, script);
   }
 
   // 跳到第 i 关(0 开始):建新游戏、render、存档。进入新关时 rewarded 清零。
@@ -1308,6 +1420,18 @@
     var spacer = el('div', 'home-spacer');      // 弹性撑开(CSS flex:1),把按钮压到画面下方地面
     home.appendChild(spacer);
 
+    var bonusList = bonusAvailable();           // G2b:有可领奖励关时主页顶部加金色"奖励关"按钮
+    if (bonusList.length > 0) {
+      var bb = el('button', 'home-btn home-bonus');
+      bb.type = 'button';
+      var bbl = el('span', 'home-bonus-label');
+      bbl.textContent = '奖励关';
+      var bbs = el('span', 'home-bonus-sub');
+      bbs.textContent = bonusList[0] + '贺礼 · 金币×2';
+      bb.appendChild(bbl);
+      bb.appendChild(bbs);
+      home.appendChild(bb);
+    }
     var start = el('button', 'home-btn home-start');   // 开始答题:主标题 + 小字"第 N 关"
     start.type = 'button';
     var label = el('span', 'home-btn-label');
@@ -1352,6 +1476,7 @@
 
   // showScreen('home' | 'levels' | 'game'):切换三个容器的 hidden;home/levels 每次进入重绘。
   function showScreen(name) {
+    if (name !== 'game' && bonusRank) endBonus();     // 离开游戏界面 = 放弃奖励关(不领奖)
     document.getElementById('home').hidden = (name !== 'home');
     document.getElementById('level-select').hidden = (name !== 'levels');
     document.getElementById('app').hidden = (name !== 'game');
@@ -1452,6 +1577,7 @@
     document.getElementById('home').addEventListener('click', function (e) {
       var btn = e.target.closest('.home-btn');
       if (!btn) return;
+      if (btn.classList.contains('home-bonus')) { var bl2 = bonusAvailable(); if (bl2.length) startBonus(bl2[0]); return; }
       if (btn.querySelector('.home-btn-sub')) { showScreen('game'); return; }  // 继续游戏
       if (btn.textContent === '选关') { showScreen('levels'); return; }
       if (btn.textContent === '签到') { openCheckinPanel(); return; }
@@ -1668,10 +1794,12 @@
     unlocked = 0;
     unlockAll = false;
     rewarded = false;
+    bonusRank = null; bonusPrevGame = null;
     pendingPromo = '';
     prevFilled = {};
     prevDone = {};
     cleared = [];
+    bonusClaimed = [];
     vocab = [];
     if (window.__game) {                                       // start() 之前调用时没有游戏实例
       window.__game = Game.createGame(levels[currentIndex]);

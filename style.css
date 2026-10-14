@@ -764,3 +764,29 @@ main {
 }
 .win-actions .meaning-close { display: block; width: 100%; margin-top: 0; }
 .win-actions .meaning-close + .meaning-close { margin-top: 10px; }
+/* ===== 第 G2b 步:主页奖励关按钮(金色宽按钮) ===== */
+#home .home-bonus {
+  width: 100%;
+  padding: 10px 0;
+  margin: 0 0 12px;
+  background: linear-gradient(#f3d27a, #d9a73a);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 4px 0 #a8791e, 0 8px 14px rgba(0,0,0,.3);
+  color: #4a3410;
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-height: 64px;                 /* 小屏不把页面撑出屏幕 */
+}
+#home .home-bonus:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #a8791e, 0 5px 10px rgba(0,0,0,.3);
+}
+.home-bonus-label { font-size: 20px; letter-spacing: 4px; }
+.home-bonus-sub { font-size: 13px; color: #6b4c12; letter-spacing: 1px; }
