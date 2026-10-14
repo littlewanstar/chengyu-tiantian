@@ -1,4 +1,4 @@
-// 府邸图标(第 G3 步,Claude 原创绘制):12 个附属建筑 + 24 件陈设,viewBox 0 0 64 64 的内联 SVG 字符串。
+// 府邸图标(第 G3 步 + 第 H 步,Claude 原创绘制):15 个附属建筑 + 36 件陈设,viewBox 0 0 64 64 的内联 SVG 字符串。
 // window.ESTATE_ART = { annex:{id:svg}, decor:{id:svg}, get(kind,id) };id 与 estate.js 一致。风格同 houses.js:扁平、土色系、金色点缀。
 (function () {
   function w(parts) {
@@ -252,6 +252,127 @@
       '<path d="M18 30 H46 M17 36 H47" stroke="#8a6a1a" stroke-width="1.2"/><circle cx="32" cy="48" r="3" fill="#6b5a2a"/>'
     ])
   };
+
+  // ---- 第 H 步新增:3 个附属建筑 + 12 件陈设(官邸/庄园/王府档位) ----
+  annex.theater = w([
+    '<rect x="6" y="46" width="52" height="9" fill="' + DSTONE + '"/><rect x="8" y="44" width="48" height="4" fill="' + STONE + '"/>',
+    '<rect x="12" y="24" width="4.4" height="21" fill="' + RED + '"/><rect x="47.6" y="24" width="4.4" height="21" fill="' + RED + '"/><rect x="26" y="24" width="3.4" height="21" fill="#a83a28"/><rect x="34.6" y="24" width="3.4" height="21" fill="#a83a28"/>',
+    '<rect x="16" y="26" width="32" height="18" fill="#2c1a22"/><path d="M16 26 Q24 36 32 26 Q40 36 48 26 V30 Q40 40 32 30 Q24 40 16 30Z" fill="' + RED + '"/>',
+    '<path d="M4 25 Q32 -2 60 25 Q50 22 32 14 Q14 22 4 25Z" fill="' + INK + '"/><path d="M8 24 Q32 6 56 24" stroke="' + GOLD + '" stroke-width="2" fill="none"/>',
+    '<path d="M4 25 q-3 -3 -1 -6 M60 25 q3 -3 1 -6" stroke="' + INK + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    '<circle cx="32" cy="38" r="3.2" fill="' + GOLD + '"/><path d="M32 41 V44" stroke="' + GOLD + '" stroke-width="1.6"/>',
+    '<g fill="#e8705a"><circle cx="19" cy="25" r="2.4"/><circle cx="45" cy="25" r="2.4"/></g>'
+  ]);
+  annex.paddock = w([
+    '<path d="M4 54 Q32 46 60 54 V58 H4Z" fill="#9cba6a"/>',
+    '<path d="M6 40 H58 M6 48 H58" stroke="' + WOOD + '" stroke-width="2.6"/><g fill="' + DWOOD + '"><rect x="8" y="34" width="3.4" height="22"/><rect x="22" y="34" width="3.4" height="22"/><rect x="38" y="34" width="3.4" height="22"/><rect x="52" y="34" width="3.4" height="22"/></g>',
+    '<path d="M18 34 Q20 24 30 22 L40 18 L44 12 L47 15 L46 22 Q50 28 46 34 L42 28 L36 30 L34 36 L30 36 L28 31 L24 34Z" fill="#8a4e2a"/>',
+    '<path d="M44 12 L47 15 L45 17Z" fill="#5a3418"/><circle cx="45" cy="14.4" r=".9" fill="' + CREAM + '"/>',
+    '<path d="M40 18 Q36 14 36 10 Q40 12 42 16" fill="#3a2418"/><path d="M18 30 Q12 28 10 34 Q16 34 20 32Z" fill="#3a2418"/>',
+    '<path d="M54 34 V20" stroke="' + DWOOD + '" stroke-width="1.6"/><path d="M54 20 L62 23 L54 26Z" fill="' + RED + '"/>'
+  ]);
+  annex.observatory = w([
+    '<rect x="14" y="46" width="36" height="9" fill="' + DSTONE + '"/><rect x="18" y="38" width="28" height="9" fill="' + STONE + '"/><rect x="22" y="30" width="20" height="9" fill="#b2bbc0"/>',
+    '<path d="M26 55 L26 50 H38 V55" stroke="' + DSTONE + '" stroke-width="1.4" fill="none"/>',
+    '<path d="M8 20 L12 22 M52 12 L56 14 M16 8 L18 12 M46 22 L48 25" stroke="' + GOLD + '" stroke-width="1.6" stroke-linecap="round"/>',
+    '<circle cx="32" cy="20" r="9" fill="none" stroke="' + GOLD + '" stroke-width="2.2"/><ellipse cx="32" cy="20" rx="9" ry="3.4" fill="none" stroke="#b8913a" stroke-width="1.8"/><ellipse cx="32" cy="20" rx="3.4" ry="9" fill="none" stroke="#b8913a" stroke-width="1.8"/>',
+    '<circle cx="32" cy="20" r="2.6" fill="' + RED + '"/><path d="M32 29 V30" stroke="' + GOLD + '" stroke-width="2"/>',
+    '<path d="M16 38 H48 M20 30 H44" stroke="#8a949a" stroke-width="1" opacity=".7"/>'
+  ]);
+
+  decor.gate = w([
+    '<rect x="8" y="50" width="48" height="6" fill="' + DSTONE + '"/>',
+    '<rect x="10" y="24" width="44" height="27" fill="' + RED + '"/><rect x="10" y="24" width="44" height="3" fill="#8a2a1a"/>',
+    '<rect x="14" y="30" width="16" height="21" fill="#a83a28" stroke="#6b2418" stroke-width="1"/><rect x="34" y="30" width="16" height="21" fill="#a83a28" stroke="#6b2418" stroke-width="1"/>',
+    '<g fill="' + GOLD + '"><circle cx="18" cy="35" r="1.3"/><circle cx="22" cy="35" r="1.3"/><circle cx="26" cy="35" r="1.3"/><circle cx="18" cy="42" r="1.3"/><circle cx="22" cy="42" r="1.3"/><circle cx="26" cy="42" r="1.3"/><circle cx="38" cy="35" r="1.3"/><circle cx="42" cy="35" r="1.3"/><circle cx="46" cy="35" r="1.3"/><circle cx="38" cy="42" r="1.3"/><circle cx="42" cy="42" r="1.3"/><circle cx="46" cy="42" r="1.3"/></g>',
+    '<circle cx="28.6" cy="43" r="2.4" fill="none" stroke="' + GOLD + '" stroke-width="1.4"/><circle cx="35.4" cy="43" r="2.4" fill="none" stroke="' + GOLD + '" stroke-width="1.4"/>',
+    '<path d="M4 25 Q32 6 60 25 L56 22 Q32 12 8 22Z" fill="' + INK + '"/><path d="M6 24 H58" stroke="' + GOLD + '" stroke-width="1.6"/>'
+  ]);
+  decor.lions = w([
+    '<rect x="12" y="50" width="40" height="7" rx="1" fill="' + DSTONE + '"/><rect x="16" y="46" width="32" height="5" fill="' + STONE + '"/>',
+    '<path d="M22 46 Q20 34 26 28 Q24 20 32 16 Q40 14 42 22 Q46 26 44 34 Q48 40 44 46Z" fill="#b9c0c4"/>',
+    '<circle cx="34" cy="24" r="9" fill="#a9b2b6"/><g fill="#8f989d"><circle cx="27" cy="22" r="3"/><circle cx="41" cy="22" r="3"/><circle cx="29" cy="30" r="3"/><circle cx="39" cy="30" r="3"/></g>',
+    '<circle cx="34" cy="25" r="6.4" fill="#cfd6da"/><circle cx="31.6" cy="23.6" r="1.1" fill="' + INK + '"/><circle cx="36.4" cy="23.6" r="1.1" fill="' + INK + '"/><path d="M32 28 Q34 30 36 28" stroke="' + INK + '" stroke-width="1.2" fill="none"/>',
+    '<circle cx="46" cy="42" r="5" fill="' + STONE + '" stroke="' + DSTONE + '"/><path d="M43 40 q3 3 6 0" stroke="' + DSTONE + '" fill="none"/>',
+    '<path d="M24 40 Q22 44 24 46 M30 40 V46" stroke="#8f989d" stroke-width="1.4" fill="none"/>'
+  ]);
+  decor.spiritwall = w([
+    '<rect x="6" y="52" width="52" height="5" fill="' + DSTONE + '"/>',
+    '<rect x="8" y="22" width="48" height="31" fill="#e9dcc0"/><rect x="8" y="22" width="48" height="31" fill="none" stroke="' + DWOOD + '" stroke-width="2"/>',
+    '<rect x="13" y="27" width="38" height="21" fill="#f3ead0" stroke="' + WOOD + '" stroke-width="1.4"/>',
+    '<circle cx="32" cy="37.5" r="7.6" fill="none" stroke="' + RED + '" stroke-width="1.8"/><path d="M26 37.5 q3 -5 6 0 q3 5 6 0" stroke="' + GOLD + '" stroke-width="1.6" fill="none"/>',
+    '<path d="M16 30 q2 -2 4 0 M44 44 q2 -2 4 0" stroke="#b9a678" stroke-width="1.2" fill="none"/>',
+    '<path d="M3 24 Q32 8 61 24 L58 21 Q32 12 6 21Z" fill="' + INK + '"/><path d="M6 23 H58" stroke="#4a3b42" stroke-width="1.6"/>'
+  ]);
+  decor.palacelamp = w([
+    '<path d="M32 2 V10" stroke="' + DWOOD + '" stroke-width="1.8"/>',
+    '<path d="M20 12 H44 L40 8 H24Z" fill="' + GOLD + '"/>',
+    '<path d="M20 12 H44 L47 32 L44 50 H20 L17 32Z" fill="' + RED + '"/>',
+    '<path d="M32 12 V50 M25 12 L22 50 M39 12 L42 50" stroke="' + GOLD + '" stroke-width="1.4" fill="none"/>',
+    '<path d="M18 22 H46 M17 38 H47" stroke="' + GOLD + '" stroke-width="1.2"/>',
+    '<ellipse cx="27" cy="26" rx="3.2" ry="8" fill="#f08a70" opacity=".6"/>',
+    '<path d="M20 50 H44 L42 54 H22Z" fill="' + GOLD + '"/><path d="M32 54 V62 M28 54 L26 62 M36 54 L38 62" stroke="' + RED + '" stroke-width="2" stroke-linecap="round"/>'
+  ]);
+  decor.plaque = w([
+    '<path d="M10 8 H54" stroke="' + DWOOD + '" stroke-width="3" stroke-linecap="round"/><path d="M20 8 V18 M44 8 V18" stroke="' + GOLD + '" stroke-width="1.6"/>',
+    '<rect x="6" y="18" width="52" height="26" rx="2" fill="#2a1d18" stroke="' + GOLD + '" stroke-width="2.4"/>',
+    '<rect x="10" y="22" width="44" height="18" fill="none" stroke="#b8913a" stroke-width="1"/>',
+    '<g fill="' + GOLD + '"><path d="M15 26 h8 v3 h-3 v8 h-2 v-8 h-3z"/><path d="M27 26 h8 v10 h-8z M29 28 v6 h4 v-6z" fill-rule="evenodd"/><path d="M39 26 h9 v3 h-3 v8 h-3 v-8 h-3z"/></g>',
+    '<path d="M16 46 V54 M48 46 V54" stroke="' + RED + '" stroke-width="2"/><path d="M14 54 H18 M46 54 H50" stroke="' + RED + '" stroke-width="2.4"/>'
+  ]);
+  decor.wutong = w([
+    '<path d="M30 58 V30 Q30 24 32 18 M32 36 Q40 32 44 24 M31 42 Q22 38 18 30" stroke="#8f9a8a" stroke-width="4.4" fill="none" stroke-linecap="round"/>',
+    '<g fill="' + GREEN + '"><path d="M12 22 L20 14 L28 22 L24 30 L16 30Z"/><path d="M30 10 L38 4 L46 12 L42 20 L34 20Z"/><path d="M40 24 L50 18 L58 26 L52 34 L44 34Z"/></g>',
+    '<g fill="' + DGREEN + '"><path d="M22 28 L30 22 L36 30 L30 36Z"/><path d="M8 32 L14 28 L18 34 L12 38Z"/></g>',
+    '<path d="M20 20 L26 24 M38 12 L40 18 M48 24 L52 30" stroke="#3f7f4f" stroke-width="1.2"/>'
+  ]);
+  decor.koi = w([
+    '<ellipse cx="32" cy="38" rx="28" ry="17" fill="' + STONE + '"/><ellipse cx="32" cy="38" rx="25" ry="14.4" fill="' + WATER + '"/>',
+    '<ellipse cx="32" cy="37" rx="19" ry="9.6" fill="#74a9b8" opacity=".6"/>',
+    '<path d="M18 38 q7 -6 14 0 q-7 6 -14 0Z" fill="#f2f0e6"/><path d="M32 38 l7 -4 v8Z" fill="#f2f0e6"/><path d="M22 36 q3 -2 6 0 q-1 3 -6 0Z" fill="' + RED + '"/>',
+    '<path d="M36 44 q6 -4 12 0 q-6 4 -12 0Z" fill="#e8893a"/><path d="M48 44 l5 -3 v6Z" fill="#e8893a"/>',
+    '<ellipse cx="46" cy="32" rx="5" ry="2.4" fill="' + GREEN + '"/><path d="M45 31 q1 -5 3 -4 q0 3 -3 4Z" fill="#f4a8b6"/>',
+    '<path d="M10 42 q4 2 8 0 M44 28 q3 1 6 0" stroke="#c9e0e6" stroke-width="1" fill="none" opacity=".8"/>'
+  ]);
+  decor.stupa = w([
+    '<rect x="14" y="52" width="36" height="6" fill="' + DSTONE + '"/><rect x="18" y="47" width="28" height="6" fill="' + STONE + '"/>',
+    '<path d="M18 47 L32 41 L46 47Z" fill="#b2bbc0"/><rect x="22" y="36" width="20" height="6" fill="' + STONE + '"/>',
+    '<path d="M22 36 L32 31 L42 36Z" fill="#b2bbc0"/><rect x="25" y="27" width="14" height="5" fill="' + STONE + '"/>',
+    '<path d="M25 27 L32 23 L39 27Z" fill="#b2bbc0"/><rect x="28" y="19" width="8" height="5" fill="' + STONE + '"/>',
+    '<path d="M28 19 L32 15 L36 19Z" fill="#b2bbc0"/><path d="M32 15 V6" stroke="' + GOLD + '" stroke-width="2"/><circle cx="32" cy="6" r="2" fill="' + GOLD + '"/>',
+    '<g fill="#6b7479"><rect x="29.4" y="49" width="5.2" height="3.4"/><rect x="29.4" y="38" width="5.2" height="2.6"/></g>'
+  ]);
+  decor.huabiao = w([
+    '<rect x="14" y="52" width="36" height="6" fill="' + DSTONE + '"/><path d="M18 52 H46 L42 46 H22Z" fill="' + STONE + '"/>',
+    '<rect x="28" y="12" width="8" height="36" fill="#e9eef0"/><path d="M28 12 V48" stroke="#b9c0c4" stroke-width="1.6"/>',
+    '<path d="M30 20 q2 4 4 0 M30 30 q2 4 4 0 M30 40 q2 4 4 0" stroke="#9aa3a8" stroke-width="1.2" fill="none"/>',
+    '<path d="M12 22 Q32 14 52 22 L50 28 Q32 21 14 28Z" fill="#eef2f3" stroke="#b9c0c4"/><path d="M18 24 q4 -3 8 0 M38 24 q4 -3 8 0" stroke="#9aa3a8" fill="none"/>',
+    '<ellipse cx="32" cy="9" rx="7" ry="3.4" fill="#e9eef0"/><path d="M26 9 Q32 -2 38 9Z" fill="#cfd6da"/><circle cx="32" cy="5" r="2.2" fill="' + GOLD + '"/>'
+  ]);
+  decor.paifang = w([
+    '<g fill="' + RED + '"><rect x="8" y="22" width="5" height="34"/><rect x="29.5" y="16" width="5" height="40"/><rect x="51" y="22" width="5" height="34"/></g>',
+    '<rect x="6" y="28" width="52" height="5" fill="#a83a28"/><rect x="10" y="38" width="44" height="3" fill="#a83a28"/>',
+    '<path d="M2 24 Q10 17 18 22 L14 24Z" fill="' + INK + '"/><path d="M46 22 Q54 17 62 24 L50 24Z" fill="' + INK + '"/>',
+    '<path d="M20 16 Q32 4 44 16 L40 18 Q32 10 24 18Z" fill="' + INK + '"/><path d="M22 17 H42" stroke="' + GOLD + '" stroke-width="1.4"/>',
+    '<rect x="26" y="19" width="12" height="7" fill="#2a1d18" stroke="' + GOLD + '" stroke-width="1"/><rect x="29" y="21" width="6" height="3" fill="' + GOLD + '"/>',
+    '<g fill="' + DSTONE + '"><rect x="5" y="55" width="11" height="4"/><rect x="26.5" y="55" width="11" height="4"/><rect x="48" y="55" width="11" height="4"/></g>'
+  ]);
+  decor.jadebi = w([
+    '<path d="M18 56 L32 46 L46 56Z" fill="' + DWOOD + '"/><path d="M14 58 H50" stroke="#2a1d18" stroke-width="3"/>',
+    '<circle cx="32" cy="28" r="20" fill="#7fc4a4"/><circle cx="32" cy="28" r="20" fill="none" stroke="#4a9a7a" stroke-width="2"/>',
+    '<circle cx="32" cy="28" r="7" fill="#f3ead0"/><circle cx="32" cy="28" r="7" fill="none" stroke="#4a9a7a" stroke-width="1.6"/>',
+    '<g fill="#5aae8a"><circle cx="32" cy="14" r="1.8"/><circle cx="46" cy="28" r="1.8"/><circle cx="32" cy="42" r="1.8"/><circle cx="18" cy="28" r="1.8"/><circle cx="42" cy="18" r="1.6"/><circle cx="42" cy="38" r="1.6"/><circle cx="22" cy="38" r="1.6"/><circle cx="22" cy="18" r="1.6"/></g>',
+    '<path d="M20 18 Q26 10 36 9" stroke="#d4f0e2" stroke-width="2.4" fill="none" opacity=".75" stroke-linecap="round"/>'
+  ]);
+  decor.phoenixscreen = w([
+    '<rect x="6" y="8" width="52" height="44" rx="2" fill="#f3ead0" stroke="' + RED + '" stroke-width="3.2"/>',
+    '<rect x="10" y="12" width="44" height="36" fill="none" stroke="' + GOLD + '" stroke-width="1.2"/>',
+    '<path d="M20 40 Q22 28 32 26 Q38 24 40 18 Q44 20 44 24 Q42 28 40 30 Q44 36 38 42 Q32 44 28 40Z" fill="' + RED + '"/>',
+    '<path d="M40 18 Q44 16 46 18 L42 20Z" fill="' + GOLD + '"/><circle cx="41.6" cy="20.4" r=".9" fill="' + INK + '"/>',
+    '<path d="M24 38 Q14 40 10 46 Q18 44 24 42 M26 40 Q22 48 16 50 Q26 50 30 42" fill="#e8a63a" stroke="#c8452f" stroke-width=".8"/>',
+    '<path d="M36 40 Q42 44 50 42 Q44 48 36 46Z" fill="#e8a63a"/><path d="M30 30 Q34 34 38 32" stroke="#f3ead0" stroke-width="1.2" fill="none"/>',
+    '<rect x="4" y="52" width="56" height="5" rx="1.4" fill="' + DWOOD + '"/>'
+  ]);
 
   // 风格 B「工笔金线」:隐藏的 SVG 滤镜 + 样式。用法:把图标放进 class="estate-icon" 的容器即可(滤镜作用在容器内的 svg 上)。
   var GONG_FILTER = '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"><defs><filter id="estate-gong" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB"><feColorMatrix in="SourceGraphic" type="saturate" values="0.78" result="s"/><feComponentTransfer in="s" result="silk"><feFuncR type="linear" slope="0.94" intercept="0.05"/><feFuncG type="linear" slope="0.92" intercept="0.04"/><feFuncB type="linear" slope="0.82" intercept="0.02"/></feComponentTransfer><feMorphology in="SourceAlpha" operator="dilate" radius="1.1" result="e"/><feFlood flood-color="#a9812f"/><feComposite in2="e" operator="in" result="gold"/><feMorphology in="SourceAlpha" operator="dilate" radius="0.5" result="e2"/><feFlood flood-color="#4a3426"/><feComposite in2="e2" operator="in" result="dark"/><feMerge><feMergeNode in="gold"/><feMergeNode in="dark"/><feMergeNode in="silk"/></feMerge></filter></defs></svg>';

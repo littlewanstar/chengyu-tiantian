@@ -215,14 +215,32 @@
     { min: 15, name: '儒生' },
     { min: 40, name: '秀才' },
     { min: 70, name: '举人' },
-    { min: 100, name: '状元' }
+    { min: 100, name: '状元' },
+    { min: 115, name: '翰林丙' },
+    { min: 135, name: '翰林乙' },
+    { min: 155, name: '翰林甲' },
+    { min: 175, name: '大学士丙' },
+    { min: 200, name: '大学士乙' },
+    { min: 225, name: '大学士甲' },
+    { min: 255, name: '首辅丙' },
+    { min: 275, name: '首辅乙' },
+    { min: 300, name: '首辅甲' }
   ];
   var HOUSES = [
-    { min: 0, name: '草屋' },
-    { min: 5, name: '泥屋' },
-    { min: 25, name: '木屋' },
-    { min: 60, name: '大木屋' },
-    { min: 100, name: '书院' }
+    { min: 0, name: '草屋', art: 0 },
+    { min: 5, name: '泥屋', art: 1 },
+    { min: 25, name: '木屋', art: 2 },
+    { min: 60, name: '大木屋', art: 3 },
+    { min: 100, name: '书院', art: 4 },
+    { min: 120, name: '官邸丙', art: 5 },
+    { min: 145, name: '官邸乙', art: 5 },
+    { min: 170, name: '官邸甲', art: 5 },
+    { min: 195, name: '庄园丙', art: 6 },
+    { min: 220, name: '庄园乙', art: 6 },
+    { min: 245, name: '庄园甲', art: 6 },
+    { min: 265, name: '王府丙', art: 7 },
+    { min: 285, name: '王府乙', art: 7 },
+    { min: 300, name: '王府甲', art: 7 }
   ];
 
   var cleared = [];   // 已通关关卡序号的数组(不重复的整数,按从小到大排序)
@@ -342,7 +360,7 @@
 
   // 奖励关用哪一关(序号,0 开始)。暂用尾部关卡,之后会换成专用奖励关。
   var BONUS_LEVEL_FROM_END = { '书生': 1, '儒生': 2, '秀才': 3, '举人': 4, '状元': 5 };   // 仅当 levels.json 没有 bonus 时的备用
-  var BONUS_ORDER = { '书生': 0, '儒生': 1, '秀才': 2, '举人': 3, '状元': 4 };           // 专用奖励关(levels.json 的 bonus 数组)下标
+  var BONUS_ORDER = { '书生': 0, '儒生': 1, '秀才': 2, '举人': 3, '状元': 4, '翰林丙': 5, '翰林乙': 6, '翰林甲': 7, '大学士丙': 8, '大学士乙': 9, '大学士甲': 10, '首辅丙': 11, '首辅乙': 12, '首辅甲': 13 };           // 专用奖励关(levels.json 的 bonus 数组)下标
   var bonusLevels = [];                                                                  // 专用奖励关,start() 里加载
   // 取某称号的奖励关:优先用专用奖励关,没有则退回尾部关卡
   function bonusLevelFor(rankName) {
@@ -944,7 +962,7 @@
       if (HOUSES[i].name === hiInfo.name) { hi = i; break; }
     }
     var box = el('div', 'progress-house');
-    box.innerHTML = (window.HOUSE_SVG && window.HOUSE_SVG[hi]) || '';
+    box.innerHTML = (window.HOUSE_SVG && window.HOUSE_SVG[HOUSES[hi].art]) || '';
     panel.appendChild(box);
 
     var names = el('div', 'progress-names');
@@ -1570,7 +1588,7 @@
     var hero = el('div', 'estate-hero');
     var hi = houseIndex();
     var house = el('div', 'estate-house');
-    house.innerHTML = (window.HOUSE_SVG && window.HOUSE_SVG[hi]) || '';   // 静态 SVG 代码，不是用户输入
+    house.innerHTML = (window.HOUSE_SVG && window.HOUSE_SVG[HOUSES[hi].art]) || '';   // 静态 SVG 代码，不是用户输入
     var nm = el('div', 'estate-house-name');
     nm.textContent = HOUSES[hi].name;
     var si = ESTATE.slotInfo(estate, hi);

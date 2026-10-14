@@ -1,4 +1,4 @@
-// 府邸插画(第 C2b 步):5 档,按 HOUSES 顺序:草屋、泥屋、木屋、大木屋、书院。
+// 府邸插画(第 C2b 步 + 第 H 步):8 张图,下标即 HOUSES 里每档的 art:0 草屋 1 泥屋 2 木屋 3 大木屋 4 书院 5 官邸 6 庄园 7 王府(官邸/庄园/王府的丙乙甲共用同一张)。
 // 每个都是 viewBox 0 0 200 140 的内联 SVG 字符串;原创绘制。
 (function () {
   var G = '<ellipse cx="100" cy="128" rx="92" ry="9" fill="#10242c" opacity="0.55"/>';
@@ -68,6 +68,51 @@
       '<circle cx="100" cy="21" r="3" fill="#d9a73a"/>' +
       '<path d="M26 74 V86" stroke="#2b1c1c"/><ellipse cx="26" cy="92" rx="6" ry="8" fill="#c8452f"/>' +
       '<path d="M174 74 V86" stroke="#2b1c1c"/><ellipse cx="174" cy="92" rx="6" ry="8" fill="#c8452f"/>'
+    ),
+    // 5 官邸(丙乙甲共用):粉墙瓦顶围院 + 朱漆大门 + 门前石狮 + 后堂屋顶
+    wrap(
+      '<rect x="60" y="48" width="80" height="34" fill="#cfc3a8"/><path d="M52 52 Q100 26 148 52 L140 54 Q100 36 60 54Z" fill="#3a3a48"/><path d="M100 28 V20" stroke="#242430" stroke-width="3"/><circle cx="100" cy="18" r="3" fill="#d9a73a"/>' +
+      '<rect x="72" y="60" width="14" height="14" fill="url(#hw)"/><rect x="114" y="60" width="14" height="14" fill="url(#hw)"/>' +
+      '<rect x="10" y="84" width="180" height="42" fill="#efe6d0"/><rect x="10" y="80" width="180" height="6" fill="#3a3a48"/>' +
+      '<path d="M10 80 H190" stroke="#242430" stroke-width="2"/><g stroke="#d9cfb4" stroke-width="1"><path d="M10 100 H190 M10 114 H190"/></g>' +
+      '<rect x="76" y="92" width="48" height="34" fill="#b03a2c"/><rect x="82" y="98" width="17" height="28" fill="#8a2a1a" stroke="#5a1a10" stroke-width="1"/><rect x="101" y="98" width="17" height="28" fill="#8a2a1a" stroke="#5a1a10" stroke-width="1"/>' +
+      '<g fill="#d9a73a"><circle cx="86" cy="106" r="1.5"/><circle cx="92" cy="106" r="1.5"/><circle cx="108" cy="106" r="1.5"/><circle cx="114" cy="106" r="1.5"/><circle cx="86" cy="116" r="1.5"/><circle cx="92" cy="116" r="1.5"/><circle cx="108" cy="116" r="1.5"/><circle cx="114" cy="116" r="1.5"/></g>' +
+      '<path d="M68 94 Q100 74 132 94 L128 96 Q100 82 72 96Z" fill="#2c2026"/><path d="M70 94 H130" stroke="#d9a73a" stroke-width="1.6"/>' +
+      '<ellipse cx="66" cy="119" rx="7" ry="8" fill="#b9c0c4"/><circle cx="66" cy="111" r="5" fill="#cfd6da"/><ellipse cx="134" cy="119" rx="7" ry="8" fill="#b9c0c4"/><circle cx="134" cy="111" r="5" fill="#cfd6da"/>' +
+      '<rect x="62" y="124" width="76" height="4" fill="#6b7479"/>' +
+      '<path d="M22 84 V70 M30 84 V64" stroke="#5a4a3a" stroke-width="3"/><ellipse cx="26" cy="62" rx="14" ry="12" fill="#4f9a5f"/><ellipse cx="176" cy="66" rx="13" ry="11" fill="#5fae6b"/><path d="M176 84 V74" stroke="#5a4a3a" stroke-width="3"/>' +
+      '<path d="M44 84 V92 M156 84 V92" stroke="#2b1c1c"/><ellipse cx="44" cy="97" rx="5" ry="6" fill="#c8452f"/><ellipse cx="156" cy="97" rx="5" ry="6" fill="#c8452f"/>'
+    ),
+    // 6 庄园:中堂 + 两翼厢房 + 水池 + 垂柳 + 凉亭
+    wrap(
+      '<rect x="0" y="102" width="200" height="26" fill="#8fb06a"/><ellipse cx="156" cy="116" rx="34" ry="8" fill="#5a8fa0"/><ellipse cx="150" cy="115" rx="22" ry="4.6" fill="#74a9b8" opacity=".6"/>' +
+      '<rect x="70" y="58" width="60" height="50" fill="#efe6d0"/><rect x="66" y="104" width="68" height="8" fill="#6b7479"/>' +
+      '<rect x="72" y="64" width="8" height="40" fill="#b03a2c"/><rect x="96" y="64" width="8" height="40" fill="#b03a2c"/><rect x="120" y="64" width="8" height="40" fill="#b03a2c"/>' +
+      '<rect x="82" y="76" width="12" height="28" fill="url(#hw)"/><rect x="106" y="76" width="12" height="28" fill="url(#hw)"/>' +
+      '<path d="M58 64 Q100 56 142 64 Q122 60 100 36 Q78 60 58 64Z" fill="#2c2026"/><path d="M62 66 H138" stroke="#d9a73a" stroke-width="2"/><path d="M82 52 Q100 46 118 52 Q108 50 100 38 Q92 50 82 52Z" fill="#3a2c30"/>' +
+      '<rect x="12" y="70" width="52" height="38" fill="#efe6d0"/><path d="M6 74 Q38 52 70 74 L64 76 Q38 62 12 76Z" fill="#3a3a48"/><rect x="22" y="82" width="12" height="14" fill="url(#hw)"/><rect x="42" y="82" width="12" height="14" fill="url(#hw)"/><rect x="8" y="106" width="60" height="5" fill="#6b7479"/>' +
+      '<rect x="136" y="70" width="52" height="38" fill="#efe6d0"/><path d="M130 74 Q162 52 194 74 L188 76 Q162 62 136 76Z" fill="#3a3a48"/><rect x="146" y="82" width="12" height="14" fill="url(#hw)"/><rect x="166" y="82" width="12" height="14" fill="url(#hw)"/>' +
+      '<path d="M96 108 V122 M104 108 V122" stroke="#9aa3a8" stroke-width="3"/><path d="M92 122 H108" stroke="#6b7479" stroke-width="3"/>' +
+      '<path d="M184 56 V100" stroke="#5a4a3a" stroke-width="3"/><path d="M184 60 q-14 8 -12 30 M184 60 q8 8 6 30 M184 62 q-20 4 -22 22" stroke="#7fae5a" stroke-width="1.6" fill="none"/>' +
+      '<ellipse cx="190" cy="56" rx="9" ry="7" fill="#5fae6b"/>' +
+      '<path d="M12 56 V70" stroke="#5a4a3a" stroke-width="3"/><ellipse cx="12" cy="52" rx="10" ry="9" fill="#4f9a5f"/>' +
+      '<path d="M96 30 V12" stroke="#d9a73a" stroke-width="2"/><path d="M96 12 L108 16 L96 20Z" fill="#c8452f"/>'
+    ),
+    // 7 王府:汉白玉三层台基 + 重檐庑殿顶(琉璃瓦金脊) + 朱红柱 + 双阙 + 旗
+    wrap(
+      '<rect x="14" y="116" width="172" height="10" fill="#d9dde0"/><rect x="24" y="108" width="152" height="9" fill="#e9eef0"/><rect x="34" y="100" width="132" height="9" fill="#f3f6f7"/>' +
+      '<path d="M34 100 H166 M24 108 H176 M14 116 H186" stroke="#b9c0c4" stroke-width="1"/>' +
+      '<g stroke="#cfd6da" stroke-width="1.4"><path d="M44 104 V116 M60 104 V116 M76 104 V116 M92 104 V116 M108 104 V116 M124 104 V116 M140 104 V116 M156 104 V116"/></g>' +
+      '<rect x="46" y="68" width="108" height="33" fill="#3a2226"/>' +
+      '<g fill="#b03a2c"><rect x="50" y="70" width="7" height="31"/><rect x="68" y="70" width="7" height="31"/><rect x="86" y="70" width="7" height="31"/><rect x="107" y="70" width="7" height="31"/><rect x="125" y="70" width="7" height="31"/><rect x="143" y="70" width="7" height="31"/></g>' +
+      '<rect x="78" y="80" width="44" height="21" fill="#8a2a1a"/><path d="M100 80 V101" stroke="#5a1a10" stroke-width="1.6"/><g fill="#d9a73a"><circle cx="94" cy="90" r="1.4"/><circle cx="106" cy="90" r="1.4"/></g>' +
+      '<path d="M18 72 Q60 70 100 46 Q140 70 182 72 Q148 76 100 58 Q52 76 18 72Z" fill="#1f6b5a"/><path d="M26 72 H174" stroke="#d9a73a" stroke-width="2.4"/>' +
+      '<path d="M44 58 Q74 54 100 30 Q126 54 156 58 Q128 60 100 42 Q72 60 44 58Z" fill="#2a8a72"/><path d="M52 58 H148" stroke="#d9a73a" stroke-width="2"/>' +
+      '<path d="M84 34 Q100 28 116 34 Q108 32 100 22 Q92 32 84 34Z" fill="#1f6b5a"/><circle cx="100" cy="19" r="3.4" fill="#d9a73a"/><path d="M96 24 Q100 14 104 24" stroke="#d9a73a" stroke-width="1.6" fill="none"/>' +
+      '<rect x="88" y="48" width="24" height="9" fill="#3a2226" stroke="#d9a73a" stroke-width="1.4"/><rect x="92" y="50" width="16" height="5" fill="#d9a73a"/>' +
+      '<rect x="4" y="74" width="16" height="42" fill="#b03a2c"/><path d="M0 76 Q12 62 24 76 L20 78 Q12 70 4 78Z" fill="#1f6b5a"/><circle cx="12" cy="62" r="2.4" fill="#d9a73a"/><rect x="9" y="84" width="6" height="9" fill="url(#hw)"/>' +
+      '<rect x="180" y="74" width="16" height="42" fill="#b03a2c"/><path d="M176 76 Q188 62 200 76 L196 78 Q188 70 180 78Z" fill="#1f6b5a"/><circle cx="188" cy="62" r="2.4" fill="#d9a73a"/><rect x="185" y="84" width="6" height="9" fill="url(#hw)"/>' +
+      '<path d="M30 100 V74" stroke="#5a4a3a" stroke-width="2"/><path d="M30 74 L44 78 L30 82Z" fill="#c8452f"/><path d="M170 100 V74" stroke="#5a4a3a" stroke-width="2"/><path d="M170 74 L156 78 L170 82Z" fill="#c8452f"/>'
     )
   ];
 })();

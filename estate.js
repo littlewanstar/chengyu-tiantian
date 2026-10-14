@@ -9,13 +9,22 @@
   var POND_CAP_DAYS = 3;       // 池塘产出最多囤 3 天,不收获就停止累积
   var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-  // 房产槽位,下标 = HOUSES 下标(草屋0 泥屋1 木屋2 大木屋3 书院4)
+  // 房产槽位,下标 = HOUSES 下标(草屋0 泥屋1 木屋2 大木屋3 书院4;官邸丙乙甲 5-7,庄园丙乙甲 8-10,王府丙乙甲 11-13)
   var SLOTS = [
     { annex: 1, decor: 3 },
     { annex: 2, decor: 5 },
     { annex: 3, decor: 8 },
     { annex: 4, decor: 12 },
-    { annex: 6, decor: 20 }
+    { annex: 6, decor: 20 },
+    { annex: 8, decor: 22 },    // 5 官邸丙
+    { annex: 9, decor: 24 },    // 6 官邸乙
+    { annex: 10, decor: 26 },   // 7 官邸甲
+    { annex: 11, decor: 28 },   // 8 庄园丙
+    { annex: 12, decor: 30 },   // 9 庄园乙
+    { annex: 13, decor: 32 },   // 10 庄园甲
+    { annex: 14, decor: 34 },   // 11 王府丙
+    { annex: 15, decor: 35 },   // 12 王府乙
+    { annex: 15, decor: 36 }    // 13 王府甲(附属 15 种、陈设 36 件全部可放)
   ];
 
   // 附属建筑:tier = 需要的最低房产下标;costs[i] = 建成/升到第 i+1 级的价格;
@@ -33,7 +42,10 @@
     { id: 'workshop',name: '工坊',   tier: 3, costs: [160, 320, 640], elegance: [4, 8, 12],  effect: { type: 'meaning', values: [25, 20, 15] }, desc: '匠人驻守,查阅释义更省(释义费 30 → 25 / 20 / 15)。' },
     { id: 'library', name: '藏书阁', tier: 4, costs: [240, 480, 960], elegance: [5, 10, 15], effect: { type: 'hint', values: [50, 40, 30] }, desc: '万卷藏书,提示更省(提示费 60 → 50 / 40 / 30)。' },
     { id: 'school',  name: '私塾',   tier: 4, costs: [240, 480, 960], elegance: [5, 10, 15], effect: null, desc: '朗朗书声,桃李满门。' },
-    { id: 'steles',  name: '碑林',   tier: 4, costs: [240, 480, 960], elegance: [5, 10, 15], effect: null, desc: '历代名帖,刻石为记。' }
+    { id: 'steles',  name: '碑林',   tier: 4, costs: [240, 480, 960], elegance: [5, 10, 15], effect: null, desc: '历代名帖,刻石为记。' },
+    { id: 'theater', name: '戏台',   tier: 5, costs: [320, 640, 1280],  elegance: [6, 12, 18], effect: null, desc: '一方戏台,逢年过节锣鼓喧天。' },
+    { id: 'paddock', name: '马场',   tier: 8, costs: [400, 800, 1600],  elegance: [7, 14, 21], effect: null, desc: '开阔马场,良驹奔驰,英姿飒爽。' },
+    { id: 'observatory', name: '观星台', tier: 11, costs: [480, 960, 1920], elegance: [8, 16, 24], effect: null, desc: '高台观天象,星河尽收眼底。' }
   ];
 
   // 陈设:纯金币,无房产门槛,只受"陈设槽位"数量限制;每件只能买一次。
@@ -61,7 +73,19 @@
     { id: 'chess',     name: '棋台',   cost: 160, elegance: 4 },
     { id: 'taihu',     name: '太湖石', cost: 180, elegance: 5 },
     { id: 'bronze',    name: '青铜鼎', cost: 200, elegance: 5 },
-    { id: 'bell',      name: '古钟',   cost: 220, elegance: 5 }
+    { id: 'bell',      name: '古钟',   cost: 220, elegance: 5 },
+    { id: 'gate',      name: '朱漆大门', cost: 260, elegance: 5 },
+    { id: 'lions',     name: '石狮',   cost: 280, elegance: 5 },
+    { id: 'spiritwall',name: '影壁',   cost: 300, elegance: 5 },
+    { id: 'palacelamp',name: '宫灯',   cost: 320, elegance: 6 },
+    { id: 'plaque',    name: '匾额',   cost: 340, elegance: 6 },
+    { id: 'wutong',    name: '梧桐',   cost: 360, elegance: 6 },
+    { id: 'koi',       name: '锦鲤池', cost: 380, elegance: 6 },
+    { id: 'stupa',     name: '石塔',   cost: 400, elegance: 6 },
+    { id: 'huabiao',   name: '华表',   cost: 430, elegance: 7 },
+    { id: 'paifang',   name: '牌坊',   cost: 460, elegance: 7 },
+    { id: 'jadebi',    name: '玉璧',   cost: 500, elegance: 7 },
+    { id: 'phoenixscreen', name: '凤纹屏', cost: 540, elegance: 8 }
   ];
 
   var annexById = Object.create(null), decorById = Object.create(null);   // 无原型:'constructor' 等字符串不会被误判为已知 id
