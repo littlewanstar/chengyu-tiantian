@@ -845,3 +845,5 @@ main {
 .guest-bio { font-size: 14px; line-height: 1.6; color: #4a4636; text-align: center; margin: 6px 4px 10px; }
 
 .guest-venue.warn { color: #b8562f; font-weight: bold; }
+
+.guest-arrive-tag { text-align: center; font-size: 13px; letter-spacing: 4px; color: #8a2f28; margin-bottom: 6px; }

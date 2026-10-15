@@ -20,6 +20,7 @@
   var prevFilled = {};                // 第 A2a 步:上一次 render 时每个格子是否已有字,键 'r,c' → true
   var prevDone = {};                  // 第 A2a 步:上一次 render 时属于已完成词的格子,键 'r,c' → true
   var lastLevelId = null;             // 第 A2a 步:上一次 render 的关卡 id,换关时不播放动画
+  var pendingGuest = null;            // 第 I 步:本次通关新来访的宾客,弹窗出现后展示来访窗口
   var pendingPromo = '';              // 第 C2a 步:通关时若称号/府邸变化,存晋升提示文案,弹窗出现时展示一次后置空
 
   function el(tag, className) {
@@ -1262,9 +1263,14 @@
     document.getElementById('settings-overlay').hidden = false;
   }
 
-  function openGuestDetail(g) {
+  function openGuestDetail(g, arrival) {
     var panel = document.getElementById('settings-panel');
     panel.textContent = '';
+    if (arrival) {
+      var tag = el('div', 'guest-arrive-tag');
+      tag.textContent = '宾客来访';
+      panel.appendChild(tag);
+    }
     var big = el('div', 'guest-big');
     var im = document.createElement('img');
     im.src = g.img; im.alt = g.name; im.draggable = false;
@@ -1281,10 +1287,17 @@
     panel.appendChild(ds);
     var back = el('button', 'meaning-close');
     back.type = 'button';
-    back.textContent = '返回';
-    back.addEventListener('click', openGuestsPanel);
+    if (arrival) {
+      back.textContent = '欢迎入座';
+      back.addEventListener('click', function () { document.getElementById('settings-overlay').hidden = true; });
+      document.getElementById('settings-overlay').hidden = false;
+    } else {
+      back.textContent = '返回';
+      back.addEventListener('click', openGuestsPanel);
+    }
     panel.appendChild(back);
   }
+  window.__openGuestArrival = function (i) { openGuestDetail(window.GUESTS[i], true); };
   window.__openGuests = openGuestsPanel;
   window.__guestsUnlocked = function () { return guestsUnlocked().map(function (g) { return g.name; }); };
 
@@ -1466,7 +1479,7 @@
     if (houseInfo().name !== oldHouse) promoParts.push('府邸升级:' + houseInfo().name);
     if (newGuests > oldGuests) {   // 第 D2/I 步:找出这次新来的那位(need 恰好等于当前通关数且会客处已建)
       var nowCount = rankInfo().count, newG = guestsUnlocked().filter(function (g) { return g.need === nowCount; })[0];
-      if (newG) promoParts.push('宾客来访:' + newG.name);
+      if (newG) { promoParts.push('宾客来访:' + newG.name); pendingGuest = newG; }
     }
     pendingPromo = promoParts.join(' · ');
     // 第 E2 步:save() 现在会写出 unlockAll,通关时开关状态一并入档(内存值不变)
@@ -1474,10 +1487,11 @@
     celebrate(reward, oldCoins);
     setTimeout(function () {
       // 第 A2b 步:弹窗前保护——玩家已离开游戏页则不弹窗
-      if (document.getElementById('app').hasAttribute('hidden')) { pendingPromo = ''; return; }
+      if (document.getElementById('app').hasAttribute('hidden')) { pendingPromo = ''; pendingGuest = null; return; }
       openWinModal(reward);
       // 第 C2a 步:弹窗出现的同一时刻展示晋升提示(有则展示一次,随即置空)
       if (pendingPromo) { showToast(pendingPromo); playSound('win'); pendingPromo = ''; }
+      if (pendingGuest) { var pg = pendingGuest; pendingGuest = null; setTimeout(function () { openGuestDetail(pg, true); }, 700); }   // 第 I 步:宾客来访窗口(盖在通关弹窗上)
     }, 650);
   }
 
@@ -1786,10 +1800,13 @@
         buy3.textContent = '建造 ' + v.cost + '金';
         if (coins < v.cost) buy3.classList.add('is-poor');
         buy3.addEventListener('click', function () {
-          var before = guestsUnlocked().length;
+          var beforeNames = guestsUnlocked().map(function (g) { return g.name; });
+          var before = beforeNames.length;
           var r = estateBuyVenue(v.id);
           if (r.ok) {
-            var n = guestsUnlocked().length - before;
+            var newOnes = guestsUnlocked().filter(function (g) { return beforeNames.indexOf(g.name) === -1; });
+            var n = newOnes.length;
+            if (n > 0) setTimeout(function () { openGuestDetail(newOnes[0], true); }, 500);   // 第 I 步:入府宾客窗口
             showToast(v.name + '落成' + (n > 0 ? '，' + n + ' 位' + v.cat + '宾客入府' : '') + (r.newHints > 0 ? '，获得免费提示 ×' + r.newHints : ''));
           } else if (r.reason === 'coins') {
             showToast('金币不够');
