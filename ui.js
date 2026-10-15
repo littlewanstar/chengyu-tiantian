@@ -146,8 +146,41 @@
     container.appendChild(t);
     setTimeout(function () {
       if (container.firstChild === t) container.textContent = '';
-    }, 1500);
+    }, 2200);
   }
+
+  // 确认式提示窗(第 I 步):重要消息(晋升、升级、建成、签到、免费提示等)不再一闪而过,
+  // 玩家点「知道了」才消失;多条按顺序排队,关闭后可执行回调(例如接着弹宾客来访)。
+  var noticeQueue = [], noticeOpen = false;
+  function showNotice(title, lines, onClose) {
+    noticeQueue.push({ title: title, lines: Array.isArray(lines) ? lines : [lines], onClose: onClose });
+    if (!noticeOpen) nextNotice();
+  }
+  function nextNotice() {
+    var n = noticeQueue.shift();
+    var ov = document.getElementById('notice-overlay');
+    if (!n) { noticeOpen = false; if (ov) ov.hidden = true; return; }
+    noticeOpen = true;
+    if (!ov) {
+      ov = el('div'); ov.id = 'notice-overlay';
+      var pn = el('div'); pn.id = 'notice-panel';
+      ov.appendChild(pn);
+      document.body.appendChild(ov);
+    }
+    var panel = document.getElementById('notice-panel');
+    panel.textContent = '';
+    var h = el('div', 'notice-title'); h.textContent = n.title; panel.appendChild(h);
+    n.lines.forEach(function (ln) { var p = el('div', 'notice-line'); p.textContent = ln; panel.appendChild(p); });
+    var ok = el('button', 'meaning-close'); ok.type = 'button'; ok.textContent = '知道了';
+    ok.addEventListener('click', function () {
+      ov.hidden = true;
+      if (n.onClose) { try { n.onClose(); } catch (e) {} }
+      nextNotice();
+    });
+    panel.appendChild(ok);
+    ov.hidden = false;
+  }
+  window.__noticeOpen = function () { return noticeOpen; };
 
   // ---------- 每日签到(第 B2a 步) ----------
   var CHECKIN_KEY = 'chengyu-tiantian-checkin';
@@ -930,7 +963,7 @@
       btn.addEventListener('click', function () {
         var r = claimCheckin();
         if (r) {
-          showToast('签到成功,获得 ' + r.reward + ' 金币');
+          showNotice('签到成功', '获得 ' + r.reward + ' 金币');
           playSound('coin');                                 // 第 F1 步:签到领奖撒金币叮当声(原 word 已静音)
           // 同步金币显示:首页可见则 renderHome() 重绘;否则更新游戏页金币数字
           if (!document.getElementById('home').hidden) renderHome();
@@ -1481,7 +1514,7 @@
       var nowCount = rankInfo().count, newG = guestsUnlocked().filter(function (g) { return g.need === nowCount; })[0];
       if (newG) { promoParts.push('宾客来访:' + newG.name); pendingGuest = newG; }
     }
-    pendingPromo = promoParts.join(' · ');
+    pendingPromo = promoParts.filter(function (x) { return x.indexOf('宾客来访') !== 0; }).join(' · ');   // 宾客来访另有专门窗口
     // 第 E2 步:save() 现在会写出 unlockAll,通关时开关状态一并入档(内存值不变)
     save(currentIndex >= levels.length - 1 ? 0 : currentIndex + 1);
     celebrate(reward, oldCoins);
@@ -1490,8 +1523,15 @@
       if (document.getElementById('app').hasAttribute('hidden')) { pendingPromo = ''; pendingGuest = null; return; }
       openWinModal(reward);
       // 第 C2a 步:弹窗出现的同一时刻展示晋升提示(有则展示一次,随即置空)
-      if (pendingPromo) { showToast(pendingPromo); playSound('win'); pendingPromo = ''; }
-      if (pendingGuest) { var pg = pendingGuest; pendingGuest = null; setTimeout(function () { openGuestDetail(pg, true); }, 700); }   // 第 I 步:宾客来访窗口(盖在通关弹窗上)
+      var pg = pendingGuest; pendingGuest = null;
+      var openArrival = pg ? function () { openGuestDetail(pg, true); } : null;   // 第 I 步:宾客来访窗口(盖在通关弹窗上)
+      if (pendingPromo) {
+        playSound('win');
+        showNotice('喜讯', pendingPromo.split(' · '), openArrival);                // 先确认晋升/府邸升级,再弹宾客
+        pendingPromo = '';
+      } else if (openArrival) {
+        setTimeout(openArrival, 700);
+      }
     }, 650);
   }
 
@@ -1752,7 +1792,7 @@
         buy.addEventListener('click', function () {
           var r = estateBuyAnnex(a.id);
           if (r.ok) {
-            showToast((lv === 0 ? '建成 ' : '升级 ') + a.name + (r.newHints > 0 ? '，获得免费提示 ×' + r.newHints : ''));
+            showNotice(lv === 0 ? '建成' : '升级', [(lv === 0 ? '建成 ' : '升级 ') + a.name].concat(r.newHints > 0 ? ['获得免费提示 ×' + r.newHints] : []));
           } else if (r.reason === 'coins') {
             showToast('金币不够');
           } else if (r.reason === 'slots') {
@@ -1806,8 +1846,8 @@
           if (r.ok) {
             var newOnes = guestsUnlocked().filter(function (g) { return beforeNames.indexOf(g.name) === -1; });
             var n = newOnes.length;
-            if (n > 0) setTimeout(function () { openGuestDetail(newOnes[0], true); }, 500);   // 第 I 步:入府宾客窗口
-            showToast(v.name + '落成' + (n > 0 ? '，' + n + ' 位' + v.cat + '宾客入府' : '') + (r.newHints > 0 ? '，获得免费提示 ×' + r.newHints : ''));
+            var vlines = [v.name + '落成'].concat(n > 0 ? [n + ' 位' + v.cat + '宾客入府'] : []).concat(r.newHints > 0 ? ['获得免费提示 ×' + r.newHints] : []);
+            showNotice('落成', vlines, n > 0 ? function () { openGuestDetail(newOnes[0], true); } : null);   // 第 I 步:确认后再弹入府宾客
           } else if (r.reason === 'coins') {
             showToast('金币不够');
           } else {
@@ -1850,7 +1890,8 @@
         buy2.addEventListener('click', function () {
           var r = estateBuyDecor(d.id);
           if (r.ok) {
-            showToast('购置 ' + d.name + (r.newHints > 0 ? '，获得免费提示 ×' + r.newHints : ''));
+            if (r.newHints > 0) showNotice('购置', ['购置 ' + d.name, '获得免费提示 ×' + r.newHints]);
+            else showToast('购置 ' + d.name);
           } else if (r.reason === 'coins') {
             showToast('金币不够');
           } else if (r.reason === 'slots') {

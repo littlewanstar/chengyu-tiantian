@@ -847,3 +847,11 @@ main {
 .guest-venue.warn { color: #b8562f; font-weight: bold; }
 
 .guest-arrive-tag { text-align: center; font-size: 13px; letter-spacing: 4px; color: #8a2f28; margin-bottom: 6px; }
+
+/* 确认式提示窗(第 I 步) */
+#notice-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(47, 79, 95, 0.55); z-index: 60; }
+#notice-overlay[hidden] { display: none; }
+#notice-panel { background: linear-gradient(#fffdf5, #f3ead0); border-radius: 14px; box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--gold-deep), 0 10px 28px rgba(0,0,0,.4); padding: 20px 22px 18px; width: min(300px, 82vw); text-align: center; }
+.notice-title { font-size: 20px; font-weight: bold; color: #4a3410; margin-bottom: 10px; }
+.notice-line { font-size: 16px; color: #4a4636; line-height: 1.7; }
+#notice-panel .meaning-close { margin-top: 14px; }
