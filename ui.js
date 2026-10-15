@@ -279,9 +279,22 @@
 
   var cleared = [];   // 已通关关卡序号的数组(不重复的整数,按从小到大排序)
   var bonusClaimed = [];   // 已领取奖励关的称号名数组,如 ['书生']
+  var guestMode = null;          // 第 I 步:正在进行「成语切磋」的宾客(此时 bonusRank === '@guest');否则 null
   var bonusRank = null;          // 正在玩的奖励关对应的称号名;null 表示不在奖励关
   var bonusPrevGame = null;      // 进入奖励关前的 window.__game,退出时恢复
   var bonusPrevRewarded = false; // 进入奖励关前的 rewarded 值
+  var guestsMet = {};               // 第 I 步:与宾客的往来 { 姓名: { n: 切磋次数(每日首次计), day: 'YYYY-MM-DD' 上次获奖日 } }
+  function sanitizeMet(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    (window.GUESTS || []).forEach(function (g) {
+      var m = Object.prototype.hasOwnProperty.call(raw, g.name) ? raw[g.name] : null;
+      if (m && typeof m === 'object' && Number.isInteger(m.n) && m.n >= 0 && m.n <= 9999) {
+        out[g.name] = { n: m.n, day: (typeof m.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.day)) ? m.day : '' };
+      }
+    });
+    return out;
+  }
   var estate = ESTATE.newState();   // 府邸状态，存放在 PROGRESS_KEY 的 JSON 里（字段 estate）
 
   // 从存档读通关记录。迁移:PROGRESS_KEY 不存在(老玩家)时,用主存档的当前关序号
@@ -290,6 +303,7 @@
   function loadProgress() {
     bonusClaimed = [];
     estate = ESTATE.newState();
+    guestsMet = {};
     var raw = null;
     try { raw = localStorage.getItem(PROGRESS_KEY); } catch (e) { return []; }
     if (raw === null) {                                   // 老玩家:从主存档迁移
@@ -336,12 +350,13 @@
         }
       }
       estate = ESTATE.sanitize(p.estate);
+      guestsMet = sanitizeMet(p.guestsMet);
       return out.slice();
     } catch (e) { return []; }                            // 坏了:空记录,不迁移
   }
 
   function saveProgress() {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: cleared, bonusClaimed: bonusClaimed, estate: estate })); } catch (e) {}
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ cleared: cleared, bonusClaimed: bonusClaimed, estate: estate, guestsMet: guestsMet })); } catch (e) {}
   }
 
   // 通关时记录:合法整数且不在 cleared 里才 push(去重),push 后重排升序并写盘。
@@ -571,7 +586,7 @@
     var animate = (lastLevelId === level.id);   // 第 A2a 步:换关(含首次)不播放动画
 
     // 顶栏:第 N 关 + 金币(金币来自 ui 里的 coins 变量)
-    document.getElementById('level-title').textContent = bonusRank ? ('奖励关 · ' + bonusRank) : ('第 ' + level.id + ' 关');
+    document.getElementById('level-title').textContent = guestMode ? ('切磋 · ' + guestMode.name) : (bonusRank ? ('奖励关 · ' + bonusRank) : ('第 ' + level.id + ' 关'));
     document.getElementById('coins-num').textContent = String(coins);
 
     // 已完成成语的格子集合(第 1 关开始时应为空,逻辑照写)
@@ -675,12 +690,12 @@
 
   // ---------- 通关弹窗(第 4c 步):复用 #meaning-overlay 样式,另建 #win-overlay ----------
   // 不能点遮罩关闭(不绑遮罩 click),只能点"下一关"按钮。
-  function openWinModal(reward, isBonus) {
+  function openWinModal(reward, isBonus, kind) {
     var panel = document.getElementById('win-panel');
     panel.textContent = '';                     // 每次重建内容
 
     var h = el('div', 'win-title');
-    h.textContent = isBonus ? '奖励关完成!' : '通关!';
+    h.textContent = kind ? '切磋完成!' : (isBonus ? '奖励关完成!' : '通关!');
     panel.appendChild(h);
 
     window.__game.level.words.forEach(function (w) {
@@ -695,7 +710,7 @@
     });
 
     var gain = el('div', 'win-reward');
-    gain.textContent = isBonus ? ('奖励关双倍:获得 ' + reward + ' 金币') : ('获得 ' + reward + ' 金币');
+    gain.textContent = kind === 'guest-again' ? '今日已领过切磋奖励' : (kind ? ('获得 ' + reward + ' 金币') : (isBonus ? ('奖励关双倍:获得 ' + reward + ' 金币') : ('获得 ' + reward + ' 金币')));
     panel.appendChild(gain);
 
     if (isBonus) {   // G2b:奖励关弹窗只有一个"回主页"按钮(不进下一关、不改 currentIndex)
@@ -1228,6 +1243,9 @@
     return out;
   }
 
+  var FRIEND_TIERS = ['初识', '相识', '知己'];
+  function friendCount(g) { var m = guestsMet[g.name]; return m ? m.n : 0; }
+  function friendTier(g) { var n = friendCount(g); return n >= 5 ? 2 : (n >= 1 ? 1 : 0); }
   var guestTab = 0;   // 当前类别下标
 
   function openGuestsPanel() {
@@ -1296,6 +1314,52 @@
     document.getElementById('settings-overlay').hidden = false;
   }
 
+  function guestPortrait(panel, g) {
+    var big = el('div', 'guest-big');
+    var im = document.createElement('img');
+    im.src = g.img; im.alt = g.name; im.draggable = false;
+    big.appendChild(im);
+    panel.appendChild(big);
+  }
+  // 见面:宾客说一句寒暄,问是否愿意以成语相会;愿意 → 成语切磋(填词),否则 → 看画像闲聊
+  function openGuestMeet(g) {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+    guestPortrait(panel, g);
+    var nm = el('div', 'win-title'); nm.textContent = g.name; panel.appendChild(nm);
+    var tier = friendTier(g);
+    var tl = el('div', 'guest-count'); tl.textContent = FRIEND_TIERS[tier]; panel.appendChild(tl);
+    var q = el('div', 'guest-bubble'); q.textContent = '「' + g.talk[tier] + '」'; panel.appendChild(q);
+    var ask = el('div', 'guest-bio'); ask.textContent = '是否愿意与' + g.name + '以成语相会?'; panel.appendChild(ask);
+    var yes = el('button', 'meaning-close'); yes.type = 'button'; yes.textContent = '愿意,切磋成语';
+    yes.addEventListener('click', function () { document.getElementById('settings-overlay').hidden = true; startGuestVisit(g); });
+    panel.appendChild(yes);
+    var no = el('button', 'meaning-close guest-no'); no.type = 'button'; no.textContent = '改日再叙,闲聊几句';
+    no.addEventListener('click', function () { openGuestChat(g, 0); });
+    panel.appendChild(no);
+  }
+  function openGuestChat(g, k) {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+    guestPortrait(panel, g);
+    var nm = el('div', 'win-title'); nm.textContent = g.name; panel.appendChild(nm);
+    var tier = friendTier(g);
+    var line = g.talk[Math.min(k, tier)];
+    var q = el('div', 'guest-bubble'); q.textContent = '「' + line + '」'; panel.appendChild(q);
+    if (tier > k) {
+      var more = el('button', 'meaning-close'); more.type = 'button'; more.textContent = '再聊一句';
+      more.addEventListener('click', function () { openGuestChat(g, k + 1); });
+      panel.appendChild(more);
+    } else {
+      var hint = el('div', 'guest-count');
+      hint.textContent = tier < 2 ? '多与' + g.name + '切磋成语,可听到更多心里话' : '';
+      if (hint.textContent) panel.appendChild(hint);
+    }
+    var bye = el('button', 'meaning-close guest-no'); bye.type = 'button'; bye.textContent = '告辞';
+    bye.addEventListener('click', function () { openGuestDetail(g); });
+    panel.appendChild(bye);
+  }
+
   function openGuestDetail(g, arrival) {
     var panel = document.getElementById('settings-panel');
     panel.textContent = '';
@@ -1318,6 +1382,16 @@
     var ds = el('div', 'guest-bio');
     ds.textContent = g.desc;
     panel.appendChild(ds);
+    if (!arrival) {
+      var fr = el('div', 'guest-count');
+      fr.textContent = '与你:' + FRIEND_TIERS[friendTier(g)] + '(切磋 ' + friendCount(g) + ' 次)';
+      panel.appendChild(fr);
+      var meet = el('button', 'meaning-close');
+      meet.type = 'button';
+      meet.textContent = '见面';
+      meet.addEventListener('click', function () { openGuestMeet(g); });
+      panel.appendChild(meet);
+    }
     var back = el('button', 'meaning-close');
     back.type = 'button';
     if (arrival) {
@@ -1477,17 +1551,33 @@
     rewarded = true;
     if (bonusRank) {
       var thisBonus = bonusRank;
+      var gm = guestMode, gFirst = false, gTierUp = '';
       var bReward = (20 + (game.state.errors === 0 ? 10 : 0)) * 2;   // 双倍:零错 60,有错 40
+      if (gm) {                                                      // 第 I 步:成语切磋——每位宾客每天首次有奖(15,零错 25)并 +1 亲密度
+        var met = guestsMet[gm.name] || (guestsMet[gm.name] = { n: 0, day: '' });
+        gFirst = met.day !== todayStr();
+        bReward = gFirst ? (15 + (game.state.errors === 0 ? 10 : 0)) : 0;
+        if (gFirst) { var t0 = friendTier(gm); met.n += 1; met.day = todayStr(); if (friendTier(gm) > t0) gTierUp = FRIEND_TIERS[friendTier(gm)]; }
+      }
       var bOld = coins;
       coins += bReward;
-      markBonusClaimed(thisBonus);
+      if (!gm) markBonusClaimed(thisBonus);
       refreshActionButtons();
+      if (gm) saveProgress();
       save();                      // 不带参数:level 仍是 currentIndex,unlocked 不变
       celebrate(bReward, bOld);
       setTimeout(function () {
         if (bonusRank !== thisBonus) return;                         // 已离开奖励关:不弹
         if (document.getElementById('app').hasAttribute('hidden')) return;
-        openWinModal(bReward, true);
+        openWinModal(bReward, true, gm ? (gFirst ? 'guest' : 'guest-again') : null);
+        if (gm) {                                                    // 宾客答谢语(确认后关闭)
+          var cat = (window.GUEST_CATS || []).filter(function (c) { return c.name === gm.cat; })[0];
+          var th = cat && cat.thanks ? cat.thanks[friendTier(gm)] : '多谢赐教。';
+          var lines = ['「' + th + '」'];
+          if (gTierUp) lines.push('你与' + gm.name + '成了「' + gTierUp + '」');
+          if (!gFirst) lines.push('今日已领过切磋奖励,明天再来吧');
+          setTimeout(function () { showNotice(gm.name, lines); }, 700);
+        }
       }, 650);
       return;                      // 不走下面的正常通关逻辑(不 markCleared、不加成语册、不晋升、不 unlocked)
     }
@@ -1548,9 +1638,28 @@
     render(window.__game, script);        // 注意:不要调用 save(),不要改 currentIndex
     showScreen('game');
   }
+  // 成语切磋(第 I 步):从已通关附近随机抽一关,不计通关、不改进度;每位宾客每天首次通关有小奖励。
+  function startGuestVisit(g) {
+    var maxIdx = levels.length - 1;
+    var c = Math.max(rankInfo().count, 5);
+    var hi = Math.min(maxIdx, c), lo = Math.max(0, hi - 25);
+    var idx = lo + Math.floor(Math.random() * (hi - lo + 1));
+    var lv = levels[idx];
+    if (!lv) return;
+    bonusPrevGame = window.__game;
+    bonusPrevRewarded = rewarded;
+    bonusRank = '@guest'; guestMode = g;
+    rewarded = false;
+    window.__game = Game.createGame(lv);
+    render(window.__game, script);
+    showScreen('game');
+  }
+  window.__startGuestVisit = function (name) { var g = (window.GUESTS || []).filter(function (x) { return x.name === name; })[0]; if (g) startGuestVisit(g); };
+  window.__guestsMet = function () { return JSON.parse(JSON.stringify(guestsMet)); };
+
   function endBonus() {
     if (!bonusRank) return;
-    bonusRank = null;
+    bonusRank = null; guestMode = null;
     rewarded = bonusPrevRewarded;
     if (bonusPrevGame) window.__game = bonusPrevGame;
     else window.__game = Game.createGame(levels[currentIndex]);
@@ -2244,6 +2353,7 @@
     cleared = [];
     bonusClaimed = [];
     estate = ESTATE.newState();
+    guestsMet = {}; guestMode = null;
     vocab = [];
     if (window.__game) {                                       // start() 之前调用时没有游戏实例
       window.__game = Game.createGame(levels[currentIndex]);
