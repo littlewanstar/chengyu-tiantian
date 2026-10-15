@@ -1188,6 +1188,8 @@
     return out;
   }
 
+  var guestTab = 0;   // 当前类别下标
+
   function openGuestsPanel() {
     var panel = document.getElementById('settings-panel');
     panel.textContent = '';
@@ -1197,28 +1199,50 @@
     panel.appendChild(h);
 
     var all = window.GUESTS || [];
+    var cats = window.GUEST_CATS || [];
+    var count = rankInfo().count;
     var unlockedSet = guestsUnlocked();
 
     var cnt = el('div', 'guest-count');
     cnt.textContent = '已结识 ' + unlockedSet.length + ' / ' + all.length + ' 位';
     panel.appendChild(cnt);
 
+    var tabs = el('div', 'guest-tabs');
+    cats.forEach(function (c, ci) {
+      var n = 0;
+      all.forEach(function (g) { if (g.cat === c.name && g.need <= count) n++; });
+      var tb = el('button', 'guest-tab' + (ci === guestTab ? ' on' : ''));
+      tb.type = 'button';
+      tb.textContent = c.name + ' ' + n;
+      tb.addEventListener('click', function () { guestTab = ci; openGuestsPanel(); });
+      tabs.appendChild(tb);
+    });
+    panel.appendChild(tabs);
+
+    var cat = cats[guestTab] || { name: '', venue: '' };
+    var vn = el('div', 'guest-venue');
+    vn.textContent = '会客处:' + cat.venue;
+    panel.appendChild(vn);
+
     var grid = el('div', 'guest-grid');
-    for (var i = 0; i < all.length; i++) {
-      var g = all[i];
-      var isUnlocked = g.need <= rankInfo().count;
+    all.forEach(function (g) {
+      if (g.cat !== cat.name) return;
+      var isUnlocked = g.need <= count;
       var card = el('div', 'guest-card' + (isUnlocked ? ' unlocked' : ' locked'));
       var fig = el('div', 'guest-figure');
-      fig.innerHTML = g.svg;                     // 静态代码,非用户输入,可用 innerHTML
+      var im = document.createElement('img');
+      im.src = g.img; im.alt = isUnlocked ? g.name : '未结识'; im.loading = 'lazy'; im.draggable = false;
+      fig.appendChild(im);
       card.appendChild(fig);
       var name = el('div', 'guest-name');
       name.textContent = isUnlocked ? g.name : '???';
       card.appendChild(name);
       var desc = el('div', 'guest-desc');
-      desc.textContent = isUnlocked ? g.desc : ('通关 ' + g.need + ' 关后来访');
+      desc.textContent = isUnlocked ? g.title : ('通关 ' + g.need + ' 关');
       card.appendChild(desc);
+      if (isUnlocked) card.addEventListener('click', function () { openGuestDetail(g); });
       grid.appendChild(card);
-    }
+    });
     panel.appendChild(grid);
 
     var back = el('button', 'meaning-close');  // 复用关闭按钮样式
@@ -1228,6 +1252,30 @@
     panel.appendChild(back);
 
     document.getElementById('settings-overlay').hidden = false;
+  }
+
+  function openGuestDetail(g) {
+    var panel = document.getElementById('settings-panel');
+    panel.textContent = '';
+    var big = el('div', 'guest-big');
+    var im = document.createElement('img');
+    im.src = g.img; im.alt = g.name; im.draggable = false;
+    big.appendChild(im);
+    panel.appendChild(big);
+    var nm = el('div', 'win-title');
+    nm.textContent = g.name;
+    panel.appendChild(nm);
+    var tt = el('div', 'guest-count');
+    tt.textContent = g.cat + ' · ' + g.title;
+    panel.appendChild(tt);
+    var ds = el('div', 'guest-bio');
+    ds.textContent = g.desc;
+    panel.appendChild(ds);
+    var back = el('button', 'meaning-close');
+    back.type = 'button';
+    back.textContent = '返回';
+    back.addEventListener('click', openGuestsPanel);
+    panel.appendChild(back);
   }
   window.__openGuests = openGuestsPanel;
   window.__guestsUnlocked = function () { return guestsUnlocked().map(function (g) { return g.name; }); };
