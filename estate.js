@@ -1,7 +1,7 @@
 // 府邸经济(第 G3a 步,Claude 编写):数据 + 纯逻辑。不碰界面、不碰 localStorage、不碰 coins 变量。
 // 用法:window.ESTATE(浏览器)或 require('./estate.js')(node 测试)。
 // 状态对象 st(可 JSON 存档):
-//   { annex:{id:等级1~3}, decor:[已购陈设 id], freeHints:n, hintsGranted:n, pondDay:'YYYY-MM-DD'|null, pondStock:n }
+//   { annex:{id:等级1~3}, venues:{id:1}, decor:[已购陈设 id], freeHints:n, hintsGranted:n, pondDay:'YYYY-MM-DD'|null, pondStock:n }
 // 购买函数传入当前金币,返回 {ok, coins(扣款后), ...};失败时 coins 原样返回并带 reason。
 (function (root) {
   var ELEGANCE_STEP = 20;      // 每攒满 20 点雅致度 → 1 次免费提示
@@ -48,6 +48,15 @@
     { id: 'observatory', name: '观星台', tier: 11, costs: [480, 960, 1920], elegance: [8, 16, 24], effect: null, desc: '高台观天象,星河尽收眼底。' }
   ];
 
+  // 会客处:每类宾客一座,一次性建成,不占附属位;建成后该类宾客才会来访(见 guests.js 的 cat)。
+  var VENUES = [
+    { id: 'xiulou',  cat: '美人', name: '绣楼',   tier: 1, cost: 80,  elegance: 3, desc: '临窗绣架,红袖添香,美人来访之所。' },
+    { id: 'wuchang', cat: '名将', name: '演武场', tier: 1, cost: 100, elegance: 3, desc: '刀枪剑戟,名将切磋武艺之地。' },
+    { id: 'wenxin',  cat: '文人', name: '文心阁', tier: 2, cost: 150, elegance: 4, desc: '笔墨纸砚俱全,文人雅集之所。' },
+    { id: 'jubao',   cat: '巨贾', name: '聚宝轩', tier: 2, cost: 200, elegance: 4, desc: '算盘声声,巨贾洽谈生意之处。' },
+    { id: 'yushu',   cat: '帝王', name: '御书房', tier: 3, cost: 300, elegance: 5, desc: '明黄帷幔,帝王驻跸议事之所。' }
+  ];
+
   // 陈设:纯金币,无房产门槛,只受"陈设槽位"数量限制;每件只能买一次。
   var DECOR = [
     { id: 'lantern',   name: '灯笼',   cost: 20,  elegance: 1 },
@@ -90,13 +99,15 @@
 
   var annexById = Object.create(null), decorById = Object.create(null);   // 无原型:'constructor' 等字符串不会被误判为已知 id
   ANNEX.forEach(function (a) { annexById[a.id] = a; });
+  var venueById = {};
+  VENUES.forEach(function (v) { venueById[v.id] = v; });
   DECOR.forEach(function (d) { decorById[d.id] = d; });
 
   function isInt(n) { return typeof n === 'number' && isFinite(n) && Math.floor(n) === n; }
   function clampHouse(h) { return isInt(h) ? Math.max(0, Math.min(SLOTS.length - 1, h)) : 0; }
 
   function newState() {
-    return { annex: {}, decor: [], freeHints: 0, hintsGranted: 0, pondDay: null, pondStock: 0 };
+    return { annex: {}, venues: {}, decor: [], freeHints: 0, hintsGranted: 0, pondDay: null, pondStock: 0 };
   }
 
   // 清洗任意输入(存档读出的 JSON):未知 id、非法等级、重复项、非整数全部丢弃/归零。
@@ -107,6 +118,11 @@
       Object.keys(raw.annex).forEach(function (id) {
         var lv = raw.annex[id];
         if (annexById[id] && isInt(lv) && lv >= 1 && lv <= MAX_LEVEL) st.annex[id] = lv;
+      });
+    }
+    if (raw.venues && typeof raw.venues === 'object' && !Array.isArray(raw.venues)) {
+      Object.keys(raw.venues).forEach(function (id) {
+        if (Object.prototype.hasOwnProperty.call(venueById, id) && raw.venues[id] === 1) st.venues[id] = 1;
       });
     }
     if (Array.isArray(raw.decor)) {
@@ -136,6 +152,7 @@
     var total = 0;
     Object.keys(st.annex).forEach(function (id) { total += annexById[id].elegance[st.annex[id] - 1]; });
     st.decor.forEach(function (id) { total += decorById[id].elegance; });
+    Object.keys(st.venues).forEach(function (id) { total += venueById[id].elegance; });
     return total;
   }
 
@@ -172,6 +189,23 @@
     st.annex[id] = lv + 1;
     var added = grantHints(st);
     return { ok: true, coins: coins - cost, level: lv + 1, cost: cost, newHints: added };
+  }
+
+  // 建造会客处:只需房产达标 + 金币够,不占附属位;只能建一次。
+  function buyVenue(st, id, houseIdx, coins) {
+    var v = venueById[id];
+    if (!v) return fail('unknown', coins);
+    if (clampHouse(houseIdx) < v.tier) return fail('locked', coins);
+    if (st.venues[id]) return fail('max', coins);
+    if (!isInt(coins) || coins < v.cost) return fail('coins', coins);
+    st.venues[id] = 1;
+    var added = grantHints(st);
+    return { ok: true, coins: coins - v.cost, cost: v.cost, newHints: added };
+  }
+  // 某类宾客的会客处是否已建成
+  function venueBuilt(st, cat) {
+    for (var i = 0; i < VENUES.length; i++) if (VENUES[i].cat === cat) return !!st.venues[VENUES[i].id];
+    return false;
   }
 
   function buyDecor(st, id, houseIdx, coins) {
@@ -224,10 +258,10 @@
 
   var api = {
     ELEGANCE_STEP: ELEGANCE_STEP, MAX_LEVEL: MAX_LEVEL, POND_CAP_DAYS: POND_CAP_DAYS,
-    SLOTS: SLOTS, ANNEX: ANNEX, DECOR: DECOR,
+    SLOTS: SLOTS, ANNEX: ANNEX, DECOR: DECOR, VENUES: VENUES,
     newState: newState, sanitize: sanitize, slotInfo: slotInfo,
     elegance: elegance, grantHints: grantHints, useFreeHint: useFreeHint, nextEleganceAt: nextEleganceAt,
-    buyAnnex: buyAnnex, buyDecor: buyDecor,
+    buyAnnex: buyAnnex, buyDecor: buyDecor, buyVenue: buyVenue, venueBuilt: venueBuilt,
     hintCost: hintCost, meaningCost: meaningCost, pondDaily: pondDaily, tickPond: tickPond, collectPond: collectPond
   };
   root.ESTATE = api;

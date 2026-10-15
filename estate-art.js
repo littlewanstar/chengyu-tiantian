@@ -253,6 +253,45 @@
     ])
   };
 
+  // ---- 第 I 步:5 座会客处 ----
+  var venue = {};
+  venue.xiulou = w([
+    '<rect x="14" y="36" width="36" height="19" fill="#f3ead0" stroke="' + DWOOD + '" stroke-width="1.2"/><rect x="18" y="19" width="28" height="18" fill="#f3ead0" stroke="' + DWOOD + '" stroke-width="1.2"/>',
+    '<path d="M8 38 Q32 28 56 38 L52 41 H12Z" fill="#c0506a"/><path d="M12 21 Q32 8 52 21 L48 24 H16Z" fill="#c0506a"/><path d="M32 8 V5" stroke="' + GOLD + '" stroke-width="2"/>',
+    '<rect x="23" y="25" width="7" height="9" rx="3" fill="#f2c27a" stroke="' + DWOOD + '"/><rect x="34" y="25" width="7" height="9" rx="3" fill="#f2c27a" stroke="' + DWOOD + '"/>',
+    '<rect x="27" y="44" width="10" height="11" rx="5" fill="' + RED + '"/><path d="M18 41 V50 M46 41 V50" stroke="' + RED + '" stroke-width="2.4"/>',
+    '<path d="M12 43 q-2 4 0 7 M52 43 q2 4 0 7" stroke="#e8705a" stroke-width="2" fill="none"/>'
+  ]);
+  venue.wuchang = w([
+    '<rect x="4" y="50" width="56" height="6" fill="#c9b27a"/>',
+    '<path d="M10 50 V20 M54 50 V20" stroke="' + DWOOD + '" stroke-width="3"/><path d="M8 24 H56" stroke="' + DWOOD + '" stroke-width="3"/>',
+    '<path d="M14 24 L14 46 M20 24 L20 46 M26 24 L26 46" stroke="#8a949a" stroke-width="1.6"/><path d="M12 24 L14 16 L16 24Z M18 24 L20 16 L22 24Z M24 24 L26 16 L28 24Z" fill="#c8ced2"/>',
+    '<path d="M36 46 L44 22" stroke="' + WOOD + '" stroke-width="2"/><path d="M44 22 L47 14 L50 22Z" fill="#c8ced2"/><path d="M44 21 q3 3 6 0" stroke="' + RED + '" stroke-width="2" fill="none"/>',
+    '<circle cx="46" cy="40" r="7" fill="' + CREAM + '" stroke="' + DWOOD + '" stroke-width="1.4"/><circle cx="46" cy="40" r="4" fill="' + RED + '"/><circle cx="46" cy="40" r="1.6" fill="' + CREAM + '"/>',
+    '<path d="M30 12 V24" stroke="' + DWOOD + '" stroke-width="1.6"/><path d="M30 12 L40 15 L30 18Z" fill="' + RED + '"/>'
+  ]);
+  venue.wenxin = w([
+    '<rect x="10" y="48" width="44" height="7" fill="' + DSTONE + '"/><rect x="14" y="26" width="36" height="22" fill="#d8c08a"/>',
+    '<path d="M6 28 Q32 8 58 28 Q46 24 32 18 Q18 24 6 28Z" fill="' + DGREEN + '"/><path d="M10 28 Q32 14 54 28" stroke="' + GOLD + '" stroke-width="1.8" fill="none"/>',
+    '<rect x="18" y="30" width="28" height="18" fill="#3a2a20"/>',
+    '<g fill="' + CREAM + '" stroke="#8a6a4a" stroke-width=".8"><rect x="20" y="32" width="5" height="7"/><rect x="26" y="32" width="5" height="7"/><rect x="32" y="32" width="5" height="7"/><rect x="38" y="32" width="5" height="7"/><rect x="22" y="41" width="5" height="6"/><rect x="29" y="41" width="5" height="6"/><rect x="36" y="41" width="5" height="6"/></g>',
+    '<rect x="24" y="16" width="16" height="6" rx="1" fill="#2a2018" stroke="' + GOLD + '"/><path d="M28 19 H36" stroke="' + GOLD + '" stroke-width="1.6"/>'
+  ]);
+  venue.jubao = w([
+    '<rect x="8" y="30" width="48" height="25" fill="' + WOOD + '"/><rect x="8" y="30" width="48" height="3" fill="' + DWOOD + '"/>',
+    '<path d="M4 32 L12 20 H52 L60 32Z" fill="' + RED + '"/><path d="M12 20 H52" stroke="' + GOLD + '" stroke-width="2"/>',
+    '<rect x="22" y="9" width="20" height="9" rx="1" fill="' + GOLD + '" stroke="' + DWOOD + '"/><path d="M26 13.5 H38" stroke="' + RED + '" stroke-width="2"/>',
+    '<rect x="12" y="36" width="40" height="19" fill="#3a2a20"/><rect x="16" y="40" width="14" height="5" fill="#d8b050"/><rect x="34" y="40" width="14" height="5" fill="#d8b050"/>',
+    '<rect x="14" y="48" width="12" height="7" fill="' + CREAM + '" stroke="' + DWOOD + '"/><path d="M17 48 V55 M20 48 V55 M23 48 V55" stroke="' + DWOOD + '" stroke-width=".8"/><circle cx="40" cy="50" r="4" fill="' + GOLD + '"/><rect x="38.4" y="48.4" width="3.2" height="3.2" fill="#3a2a20"/>'
+  ]);
+  venue.yushu = w([
+    '<rect x="6" y="48" width="52" height="8" fill="#b8b2a4"/><rect x="10" y="44" width="44" height="5" fill="#d0cabc"/>',
+    '<rect x="14" y="26" width="36" height="19" fill="' + RED + '"/><rect x="26" y="30" width="12" height="15" fill="#f0c840" stroke="' + GOLD + '"/>',
+    '<path d="M4 28 Q32 6 60 28 Q48 24 32 16 Q16 24 4 28Z" fill="#e0b020"/><path d="M10 28 Q32 12 54 28" stroke="#8a2f28" stroke-width="2" fill="none"/>',
+    '<path d="M28 33 H36 M28 37 H36" stroke="' + RED + '" stroke-width="1.4"/><path d="M32 10 V6" stroke="' + GOLD + '" stroke-width="2.4"/><circle cx="32" cy="5" r="2" fill="' + RED + '"/>',
+    '<path d="M16 28 V45 M48 28 V45" stroke="#8a2a1a" stroke-width="3"/>'
+  ]);
+
   // ---- 第 H 步新增:3 个附属建筑 + 12 件陈设(官邸/庄园/王府档位) ----
   annex.theater = w([
     '<rect x="6" y="46" width="52" height="9" fill="' + DSTONE + '"/><rect x="8" y="44" width="48" height="4" fill="' + STONE + '"/>',
@@ -396,7 +435,7 @@
   }
 
   window.ESTATE_ART = {
-    annex: annex, decor: decor,
-    get: function (kind, id) { var t = kind === 'annex' ? annex : decor; return Object.prototype.hasOwnProperty.call(t, id) ? t[id] : ''; }
+    annex: annex, decor: decor, venue: venue,
+    get: function (kind, id) { var t = kind === 'annex' ? annex : (kind === 'venue' ? venue : decor); return Object.prototype.hasOwnProperty.call(t, id) ? t[id] : ''; }
   };
 })();

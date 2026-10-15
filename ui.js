@@ -407,6 +407,11 @@
     if (r.ok) { coins = r.coins; estateAfterChange(); }
     return r;
   }
+  function estateBuyVenue(id) {
+    var r = ESTATE.buyVenue(estate, id, houseIndex(), coins);
+    if (r.ok) { coins = r.coins; estateAfterChange(); }
+    return r;
+  }
   function estateBuyDecor(id) {
     var r = ESTATE.buyDecor(estate, id, houseIndex(), coins);
     if (r.ok) { coins = r.coins; estateAfterChange(); }
@@ -420,6 +425,7 @@
   window.__estate = function () { return estate; };
   window.__estateBuyAnnex = estateBuyAnnex;
   window.__estateBuyDecor = estateBuyDecor;
+  window.__estateBuyVenue = estateBuyVenue;
   window.__estateCollectPond = estateCollectPond;
   window.__houseIndex = houseIndex;
   window.__hintCost = hintCostNow;
@@ -1183,7 +1189,7 @@
     var c = rankInfo().count;
     var out = [];
     for (var i = 0; i < window.GUESTS.length; i++) {
-      if (window.GUESTS[i].need <= c) out.push(window.GUESTS[i]);
+      if (window.GUESTS[i].need <= c && ESTATE.venueBuilt(estate, window.GUESTS[i].cat)) out.push(window.GUESTS[i]);
     }
     return out;
   }
@@ -1210,7 +1216,7 @@
     var tabs = el('div', 'guest-tabs');
     cats.forEach(function (c, ci) {
       var n = 0;
-      all.forEach(function (g) { if (g.cat === c.name && g.need <= count) n++; });
+      all.forEach(function (g) { if (g.cat === c.name && g.need <= count && ESTATE.venueBuilt(estate, g.cat)) n++; });
       var tb = el('button', 'guest-tab' + (ci === guestTab ? ' on' : ''));
       tb.type = 'button';
       tb.textContent = c.name + ' ' + n;
@@ -1221,13 +1227,15 @@
 
     var cat = cats[guestTab] || { name: '', venue: '' };
     var vn = el('div', 'guest-venue');
-    vn.textContent = '会客处:' + cat.venue;
+    var vbuilt2 = ESTATE.venueBuilt(estate, cat.name);
+    vn.textContent = '会客处:' + cat.venue + (vbuilt2 ? '(已建成)' : '(未建,请到「府邸」建造)');
+    if (!vbuilt2) vn.classList.add('warn');
     panel.appendChild(vn);
 
     var grid = el('div', 'guest-grid');
     all.forEach(function (g) {
       if (g.cat !== cat.name) return;
-      var isUnlocked = g.need <= count;
+      var isUnlocked = g.need <= count && ESTATE.venueBuilt(estate, g.cat);
       var card = el('div', 'guest-card' + (isUnlocked ? ' unlocked' : ' locked'));
       var fig = el('div', 'guest-figure');
       var im = document.createElement('img');
@@ -1238,7 +1246,7 @@
       name.textContent = isUnlocked ? g.name : '???';
       card.appendChild(name);
       var desc = el('div', 'guest-desc');
-      desc.textContent = isUnlocked ? g.title : ('通关 ' + g.need + ' 关');
+      desc.textContent = isUnlocked ? g.title : (g.need > count ? ('通关 ' + g.need + ' 关') : ('待建' + cat.venue));
       card.appendChild(desc);
       if (isUnlocked) card.addEventListener('click', function () { openGuestDetail(g); });
       grid.appendChild(card);
@@ -1456,7 +1464,10 @@
     var promoParts = [];
     if (rankInfo().name !== oldRank) promoParts.push('晋升:' + rankInfo().name);
     if (houseInfo().name !== oldHouse) promoParts.push('府邸升级:' + houseInfo().name);
-    if (newGuests > oldGuests) promoParts.push('宾客来访:' + guestsUnlocked()[newGuests - 1].name);  // 第 D2 步:一次通关最多新解锁一位
+    if (newGuests > oldGuests) {   // 第 D2/I 步:找出这次新来的那位(need 恰好等于当前通关数且会客处已建)
+      var nowCount = rankInfo().count, newG = guestsUnlocked().filter(function (g) { return g.need === nowCount; })[0];
+      if (newG) promoParts.push('宾客来访:' + newG.name);
+    }
     pendingPromo = promoParts.join(' · ');
     // 第 E2 步:save() 现在会写出 unlockAll,通关时开关状态一并入档(内存值不变)
     save(currentIndex >= levels.length - 1 ? 0 : currentIndex + 1);
@@ -1742,6 +1753,56 @@
       item.appendChild(mid);
       item.appendChild(buy);
       body.appendChild(item);
+    });
+
+    // 第 I 步:会客处(建成后对应类别的宾客才会来访)
+    var vtitle = el('div', 'estate-section-title');
+    var vbuilt = Object.keys(estate.venues).length;
+    vtitle.textContent = '会客处 ' + vbuilt + '/' + ESTATE.VENUES.length;
+    body.appendChild(vtitle);
+    ESTATE.VENUES.forEach(function (v) {
+      var built = !!estate.venues[v.id];
+      var item3 = el('div', 'estate-item');
+      var icon3 = el('div', 'estate-icon');
+      icon3.innerHTML = ESTATE_ART.get('venue', v.id);   // 静态 SVG 代码，不是用户输入
+      var mid3 = el('div');
+      var name3 = el('div', 'estate-item-name');
+      name3.textContent = v.name + '  ' + (built ? '已建成' : '未建');
+      var note3 = el('div', 'estate-note');
+      note3.textContent = v.desc;
+      mid3.appendChild(name3);
+      mid3.appendChild(note3);
+      var buy3 = el('button', 'estate-buy');
+      buy3.type = 'button';
+      if (built) {
+        buy3.textContent = '已建成';
+        buy3.classList.add('is-max');
+        buy3.disabled = true;
+      } else if (v.tier > houseIndex()) {
+        buy3.textContent = '需' + HOUSES[v.tier].name;
+        buy3.classList.add('is-locked');
+        buy3.disabled = true;
+      } else {
+        buy3.textContent = '建造 ' + v.cost + '金';
+        if (coins < v.cost) buy3.classList.add('is-poor');
+        buy3.addEventListener('click', function () {
+          var before = guestsUnlocked().length;
+          var r = estateBuyVenue(v.id);
+          if (r.ok) {
+            var n = guestsUnlocked().length - before;
+            showToast(v.name + '落成' + (n > 0 ? '，' + n + ' 位' + v.cat + '宾客入府' : '') + (r.newHints > 0 ? '，获得免费提示 ×' + r.newHints : ''));
+          } else if (r.reason === 'coins') {
+            showToast('金币不够');
+          } else {
+            showToast('暂时不能建造');
+          }
+          renderEstate();
+        });
+      }
+      item3.appendChild(icon3);
+      item3.appendChild(mid3);
+      item3.appendChild(buy3);
+      body.appendChild(item3);
     });
 
     // 第 G3c-c3b 步:陈设列表(购置)
