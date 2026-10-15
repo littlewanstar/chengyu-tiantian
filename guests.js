@@ -1,49 +1,487 @@
-// 宾客图鉴(第 D2 步):10 位原创人物,按通关数解锁。
-// window.GUESTS = [{ name, need, desc, svg }, ...];viewBox 0 0 80 100。未解锁时由 CSS 做成剪影。
+// 宾客图鉴:60 位历史人物(5 类 × 12),按通关数解锁——五类轮流,每通关 5 关来访一位。
+// window.GUEST_CATS = [{ name, venue }];window.GUESTS = [{ name, cat, title, desc, img, need }]。
 (function () {
-  function fig(o) {
-    var hair = '#2a1f1f', skin = '#f1d3b0';
-    var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 100" role="img">';
-    s += '<ellipse cx="40" cy="95" rx="22" ry="4" fill="#000" opacity="0.18"/>';
-    // 袍身
-    s += '<path d="M22 94 L26 56 Q40 46 54 56 L58 94 Z" fill="' + o.robe + '"/>';
-    s += '<path d="M40 52 L40 94" stroke="' + o.trim + '" stroke-width="2"/>';
-    s += '<path d="M28 60 Q40 68 52 60" fill="none" stroke="' + o.trim + '" stroke-width="2.4"/>';
-    s += '<rect x="30" y="72" width="20" height="3.5" fill="' + o.belt + '"/>';
-    // 头
-    s += '<circle cx="40" cy="38" r="12" fill="' + skin + '"/>';
-    s += '<circle cx="35.5" cy="38" r="1.3" fill="#3a2a2a"/><circle cx="44.5" cy="38" r="1.3" fill="#3a2a2a"/>';
-    s += '<path d="M37 43.5 Q40 45.5 43 43.5" fill="none" stroke="#a5604a" stroke-width="1.2"/>';
-    if (o.beard) s += '<path d="M33 44 Q40 60 47 44 Q40 50 33 44 Z" fill="#e8e4dc"/>';
-    // 帽/发
-    if (o.hat === 'scholar') { s += '<path d="M27 34 Q40 16 53 34 L50 30 Q40 22 30 30 Z" fill="' + hair + '"/><rect x="31" y="24" width="18" height="8" rx="2" fill="' + o.hatc + '"/>'; }
-    else if (o.hat === 'bun') { s += '<path d="M28 36 Q40 20 52 36 Q40 28 28 36 Z" fill="' + hair + '"/><circle cx="40" cy="22" r="6" fill="' + hair + '"/><rect x="36" y="27" width="8" height="2.5" fill="' + o.hatc + '"/>'; }
-    else if (o.hat === 'straw') { s += '<path d="M20 32 Q40 8 60 32 Q40 28 20 32 Z" fill="' + o.hatc + '"/><path d="M24 31 Q40 24 56 31" fill="none" stroke="#8a6a2a" stroke-width="1.2"/>'; }
-    else if (o.hat === 'cloth') { s += '<path d="M27 36 Q40 14 53 36 Q40 26 27 36 Z" fill="' + o.hatc + '"/><path d="M52 32 L62 40 L54 38 Z" fill="' + o.hatc + '"/>'; }
-    else { s += '<path d="M28 36 Q40 18 52 36 Q40 28 28 36 Z" fill="' + hair + '"/>'; }
-    // 道具
-    if (o.prop === 'book') s += '<rect x="48" y="60" width="16" height="20" rx="1.5" fill="#e8dcc0" transform="rotate(12 56 70)"/><path d="M52 63 H61 M52 68 H61 M52 73 H59" stroke="#8a6a4a" stroke-width="1" transform="rotate(12 56 70)"/>';
-    if (o.prop === 'rod') s += '<path d="M56 78 L72 30" stroke="#7a5a30" stroke-width="2"/><path d="M72 30 Q66 44 70 54" fill="none" stroke="#ccc" stroke-width="0.8"/>';
-    if (o.prop === 'axe') s += '<path d="M58 84 L58 52" stroke="#7a5a30" stroke-width="2.4"/><path d="M58 52 L68 54 L66 62 L58 62 Z" fill="#8f98a3"/>';
-    if (o.prop === 'zither') s += '<path d="M14 82 L66 74 L66 80 L14 88 Z" fill="#5a3a24"/><path d="M18 84 L64 77" stroke="#e8dcc0" stroke-width="0.8"/>';
-    if (o.prop === 'board') s += '<rect x="46" y="74" width="20" height="14" rx="1" fill="#c9a060"/><path d="M52 74 V88 M59 74 V88 M46 81 H66" stroke="#5a3a24" stroke-width="0.8"/><circle cx="55" cy="78" r="1.8" fill="#222"/><circle cx="62" cy="84" r="1.8" fill="#f4f4f4"/>';
-    if (o.prop === 'brush') s += '<path d="M60 80 L70 50" stroke="#6b4a2a" stroke-width="2"/><path d="M70 50 L72 42 L68 46 Z" fill="#222"/>';
-    if (o.prop === 'herb') s += '<rect x="48" y="66" width="18" height="16" rx="3" fill="#8a5a3a"/><path d="M54 66 Q57 58 60 66" fill="none" stroke="#3a8a4a" stroke-width="2"/>';
-    if (o.prop === 'sword') s += '<path d="M60 90 L60 44" stroke="#c9d2dc" stroke-width="2.6"/><rect x="56" y="76" width="8" height="2.6" fill="#6b4a2a"/>';
-    if (o.prop === 'tea') s += '<path d="M50 74 H66 L64 84 Q58 88 52 84 Z" fill="#6aa6a0"/><path d="M62 70 Q66 66 64 62" fill="none" stroke="#fff" stroke-width="1" opacity="0.6"/>';
-    if (o.prop === 'fan') s += '<path d="M52 74 L64 56 A10 10 0 0 1 72 66 Z" fill="#f4ecd0"/><path d="M52 74 L66 58 M52 74 L68 62" stroke="#a08a5a" stroke-width="0.8"/>';
-    return s + '</svg>';
-  }
+  window.GUEST_CATS = [{"name": "美人", "venue": "绣楼"}, {"name": "名将", "venue": "演武场"}, {"name": "文人", "venue": "文心阁"}, {"name": "巨贾", "venue": "聚宝轩"}, {"name": "帝王", "venue": "御书房"}];
   window.GUESTS = [
-    { name: '书童', need: 10, desc: '捧着书卷,总在院门口等你。', svg: fig({ robe: '#7aa6b8', trim: '#e8f0f4', belt: '#c8452f', hat: 'bun', hatc: '#c8452f', prop: 'book' }) },
-    { name: '樵夫', need: 20, desc: '山里来的,最爱讲古谚。', svg: fig({ robe: '#8a6a3c', trim: '#c9a85a', belt: '#4a3a2a', hat: 'cloth', hatc: '#6a8a5a', prop: 'axe' }) },
-    { name: '渔翁', need: 30, desc: '垂钓江上,话少意深。', svg: fig({ robe: '#4a7a6a', trim: '#cfe3d6', belt: '#2f4f4a', hat: 'straw', hatc: '#d8c074', prop: 'rod', beard: true }) },
-    { name: '琴师', need: 40, desc: '一曲未终,字已填满。', svg: fig({ robe: '#7a5a9a', trim: '#e6d9f2', belt: '#f0c860', hat: 'scholar', hatc: '#3a2a4a', prop: 'zither' }) },
-    { name: '棋士', need: 50, desc: '落子无悔,逢人必邀对弈。', svg: fig({ robe: '#3a3a4a', trim: '#9aa0b0', belt: '#d9a73a', hat: 'scholar', hatc: '#1d1d28', prop: 'board', beard: true }) },
-    { name: '画师', need: 60, desc: '以墨为友,以山为稿。', svg: fig({ robe: '#d8d0b8', trim: '#8a8068', belt: '#6a5a3a', hat: 'cloth', hatc: '#3a3a3a', prop: 'brush' }) },
-    { name: '医者', need: 70, desc: '悬壶济世,也懂字里药方。', svg: fig({ robe: '#5a8a5a', trim: '#dcead8', belt: '#8a5a3a', hat: 'scholar', hatc: '#2f5a2f', prop: 'herb', beard: true }) },
-    { name: '剑客', need: 80, desc: '剑在鞘中,心在字间。', svg: fig({ robe: '#2f3a5a', trim: '#8aa0d0', belt: '#c8452f', hat: 'none', hatc: '#2a1f1f', prop: 'sword' }) },
-    { name: '茶商', need: 90, desc: '远道而来,带着一壶好茶。', svg: fig({ robe: '#b8562f', trim: '#f0d0a8', belt: '#5a3a24', hat: 'cloth', hatc: '#7a2f1f', prop: 'tea' }) },
-    { name: '诗人', need: 100, desc: '月下来访,为书院题诗。', svg: fig({ robe: '#e8e0f0', trim: '#a89ac8', belt: '#d9a73a', hat: 'scholar', hatc: '#4a3a6a', prop: 'fan', beard: true }) }
-  ];
+ {
+  "name": "西施",
+  "cat": "美人",
+  "title": "春秋·越国",
+  "desc": "浣纱溪畔,倾城之貌,\"沉鱼\"之典由她而来。",
+  "img": "guests/g01.jpg",
+  "need": 5
+ },
+ {
+  "name": "白起",
+  "cat": "名将",
+  "title": "战国·秦",
+  "desc": "号\"人屠\",长平之战大破赵军,一生七十余战不败。",
+  "img": "guests/g13.jpg",
+  "need": 10
+ },
+ {
+  "name": "屈原",
+  "cat": "文人",
+  "title": "战国·楚",
+  "desc": "忧国忧民,作《离骚》,端午的由来与他有关。",
+  "img": "guests/g25.jpg",
+  "need": 15
+ },
+ {
+  "name": "范蠡",
+  "cat": "巨贾",
+  "title": "春秋",
+  "desc": "助勾践灭吴后弃官经商,三致千金,后世尊为商圣。",
+  "img": "guests/g37.jpg",
+  "need": 20
+ },
+ {
+  "name": "秦始皇",
+  "cat": "帝王",
+  "title": "秦",
+  "desc": "统一六国,书同文、车同轨,立郡县之制。",
+  "img": "guests/g49.jpg",
+  "need": 25
+ },
+ {
+  "name": "王昭君",
+  "cat": "美人",
+  "title": "西汉",
+  "desc": "出塞和亲,远嫁匈奴,换来边境数十年安宁。",
+  "img": "guests/g02.jpg",
+  "need": 30
+ },
+ {
+  "name": "韩信",
+  "cat": "名将",
+  "title": "西汉",
+  "desc": "国士无双,\"多多益善\",背水一战名垂兵史。",
+  "img": "guests/g14.jpg",
+  "need": 35
+ },
+ {
+  "name": "司马迁",
+  "cat": "文人",
+  "title": "西汉",
+  "desc": "忍辱著《史记》,\"究天人之际,通古今之变\"。",
+  "img": "guests/g26.jpg",
+  "need": 40
+ },
+ {
+  "name": "子贡",
+  "cat": "巨贾",
+  "title": "春秋",
+  "desc": "孔子弟子,善言辞会经商,\"货殖\"成家。",
+  "img": "guests/g38.jpg",
+  "need": 45
+ },
+ {
+  "name": "汉武帝",
+  "cat": "帝王",
+  "title": "西汉",
+  "desc": "北击匈奴,通西域,\"罢黜百家,独尊儒术\"。",
+  "img": "guests/g50.jpg",
+  "need": 50
+ },
+ {
+  "name": "貂蝉",
+  "cat": "美人",
+  "title": "东汉末",
+  "desc": "传说中智设连环计,离间董卓与吕布。",
+  "img": "guests/g03.jpg",
+  "need": 55
+ },
+ {
+  "name": "卫青",
+  "cat": "名将",
+  "title": "西汉",
+  "desc": "七击匈奴,收复河套,汉武帝的柱石之将。",
+  "img": "guests/g15.jpg",
+  "need": 60
+ },
+ {
+  "name": "陶渊明",
+  "cat": "文人",
+  "title": "东晋",
+  "desc": "不为五斗米折腰,归隐田园,\"采菊东篱下\"。",
+  "img": "guests/g27.jpg",
+  "need": 65
+ },
+ {
+  "name": "吕不韦",
+  "cat": "巨贾",
+  "title": "战国·秦",
+  "desc": "以\"奇货可居\"投资公子异人,官至秦相,主编《吕氏春秋》。",
+  "img": "guests/g39.jpg",
+  "need": 70
+ },
+ {
+  "name": "唐太宗",
+  "cat": "帝王",
+  "title": "唐",
+  "desc": "开创贞观之治,\"以铜为镜,可以正衣冠\"。",
+  "img": "guests/g51.jpg",
+  "need": 75
+ },
+ {
+  "name": "杨贵妃",
+  "cat": "美人",
+  "title": "唐·玄宗朝",
+  "desc": "丰腴明艳,\"羞花\"之誉,长生殿故事流传千古。",
+  "img": "guests/g04.jpg",
+  "need": 80
+ },
+ {
+  "name": "霍去病",
+  "cat": "名将",
+  "title": "西汉",
+  "desc": "少年封侯,\"匈奴未灭,何以家为\"。",
+  "img": "guests/g16.jpg",
+  "need": 85
+ },
+ {
+  "name": "王维",
+  "cat": "文人",
+  "title": "唐",
+  "desc": "诗中有画,画中有诗,人称\"诗佛\"。",
+  "img": "guests/g28.jpg",
+  "need": 90
+ },
+ {
+  "name": "沈万三",
+  "cat": "巨贾",
+  "title": "元末明初",
+  "desc": "江南首富,传说得聚宝盆,富可敌国。",
+  "img": "guests/g40.jpg",
+  "need": 95
+ },
+ {
+  "name": "武则天",
+  "cat": "帝王",
+  "title": "唐·周",
+  "desc": "中国史上唯一正统女皇帝,改国号为周。",
+  "img": "guests/g52.jpg",
+  "need": 100
+ },
+ {
+  "name": "赵飞燕",
+  "cat": "美人",
+  "title": "西汉",
+  "desc": "舞姿轻盈,相传能作掌上之舞。",
+  "img": "guests/g05.jpg",
+  "need": 105
+ },
+ {
+  "name": "李广",
+  "cat": "名将",
+  "title": "西汉",
+  "desc": "飞将军,善射,\"桃李不言,下自成蹊\"赞的便是他。",
+  "img": "guests/g17.jpg",
+  "need": 110
+ },
+ {
+  "name": "李白",
+  "cat": "文人",
+  "title": "唐",
+  "desc": "诗仙,\"举杯邀明月\",斗酒诗百篇。",
+  "img": "guests/g29.jpg",
+  "need": 115
+ },
+ {
+  "name": "胡雪岩",
+  "cat": "巨贾",
+  "title": "清",
+  "desc": "红顶商人,创胡庆余堂,\"戒欺\"二字悬于堂上。",
+  "img": "guests/g41.jpg",
+  "need": 120
+ },
+ {
+  "name": "唐玄宗",
+  "cat": "帝王",
+  "title": "唐",
+  "desc": "前期开创开元盛世,后期有安史之乱。",
+  "img": "guests/g53.jpg",
+  "need": 125
+ },
+ {
+  "name": "甄宓",
+  "cat": "美人",
+  "title": "三国·魏",
+  "desc": "才貌双绝,后世传说《洛神赋》与她相关。",
+  "img": "guests/g06.jpg",
+  "need": 130
+ },
+ {
+  "name": "关羽",
+  "cat": "名将",
+  "title": "三国·蜀",
+  "desc": "义薄云天,过五关斩六将,后世尊为\"武圣\"。",
+  "img": "guests/g18.jpg",
+  "need": 135
+ },
+ {
+  "name": "杜甫",
+  "cat": "文人",
+  "title": "唐",
+  "desc": "诗圣,忧民忧世,\"安得广厦千万间\"。",
+  "img": "guests/g30.jpg",
+  "need": 140
+ },
+ {
+  "name": "乔致庸",
+  "cat": "巨贾",
+  "title": "清",
+  "desc": "晋商代表,\"货通天下,汇通天下\",票号兴盛。",
+  "img": "guests/g42.jpg",
+  "need": 145
+ },
+ {
+  "name": "宋太祖",
+  "cat": "帝王",
+  "title": "北宋",
+  "desc": "陈桥兵变建宋,\"杯酒释兵权\",重文抑武。",
+  "img": "guests/g54.jpg",
+  "need": 150
+ },
+ {
+  "name": "大乔",
+  "cat": "美人",
+  "title": "三国·东吴",
+  "desc": "江东二乔之姐,孙策之妻。",
+  "img": "guests/g07.jpg",
+  "need": 155
+ },
+ {
+  "name": "赵云",
+  "cat": "名将",
+  "title": "三国·蜀",
+  "desc": "长坂坡七进七出,一身是胆。",
+  "img": "guests/g19.jpg",
+  "need": 160
+ },
+ {
+  "name": "白居易",
+  "cat": "文人",
+  "title": "唐",
+  "desc": "诗求平易,老妪能解,《长恨歌》《琵琶行》名篇。",
+  "img": "guests/g31.jpg",
+  "need": 165
+ },
+ {
+  "name": "伍秉鉴",
+  "cat": "巨贾",
+  "title": "清",
+  "desc": "广州十三行之首,当年世界级首富之一。",
+  "img": "guests/g43.jpg",
+  "need": 170
+ },
+ {
+  "name": "成吉思汗",
+  "cat": "帝王",
+  "title": "蒙古",
+  "desc": "统一蒙古诸部,建大蒙古国,开创草原帝国。",
+  "img": "guests/g55.jpg",
+  "need": 175
+ },
+ {
+  "name": "小乔",
+  "cat": "美人",
+  "title": "三国·东吴",
+  "desc": "江东二乔之妹,周瑜之妻,\"铜雀春深\"典故中的名字。",
+  "img": "guests/g08.jpg",
+  "need": 180
+ },
+ {
+  "name": "岳飞",
+  "cat": "名将",
+  "title": "南宋",
+  "desc": "精忠报国,岳家军\"撼山易,撼岳家军难\"。",
+  "img": "guests/g20.jpg",
+  "need": 185
+ },
+ {
+  "name": "苏轼",
+  "cat": "文人",
+  "title": "北宋",
+  "desc": "\"大江东去\",诗词文书画皆通,一生乐观旷达。",
+  "img": "guests/g32.jpg",
+  "need": 190
+ },
+ {
+  "name": "王炽",
+  "cat": "巨贾",
+  "title": "清",
+  "desc": "云南商人,号\"天下第一商\",票号遍及全国。",
+  "img": "guests/g44.jpg",
+  "need": 195
+ },
+ {
+  "name": "忽必烈",
+  "cat": "帝王",
+  "title": "元",
+  "desc": "建立元朝,定都大都,统一中国。",
+  "img": "guests/g56.jpg",
+  "need": 200
+ },
+ {
+  "name": "虞姬",
+  "cat": "美人",
+  "title": "秦末",
+  "desc": "随项羽征战,垓下之围,慷慨以剑自刎。",
+  "img": "guests/g09.jpg",
+  "need": 205
+ },
+ {
+  "name": "薛仁贵",
+  "cat": "名将",
+  "title": "唐",
+  "desc": "\"三箭定天山\",白袍骁将,军中传唱。",
+  "img": "guests/g21.jpg",
+  "need": 210
+ },
+ {
+  "name": "李清照",
+  "cat": "文人",
+  "title": "南宋",
+  "desc": "婉约词宗,\"人比黄花瘦\"传诵千古。",
+  "img": "guests/g33.jpg",
+  "need": 215
+ },
+ {
+  "name": "张謇",
+  "cat": "巨贾",
+  "title": "清末民初",
+  "desc": "状元办实业,创办大生纱厂,开办学校。",
+  "img": "guests/g45.jpg",
+  "need": 220
+ },
+ {
+  "name": "朱元璋",
+  "cat": "帝王",
+  "title": "明",
+  "desc": "出身贫苦的开国皇帝,\"高筑墙,广积粮,缓称王\"。",
+  "img": "guests/g57.jpg",
+  "need": 225
+ },
+ {
+  "name": "李师师",
+  "cat": "美人",
+  "title": "北宋",
+  "desc": "汴京名伎,色艺双绝,与词人周邦彦等多有往来。",
+  "img": "guests/g10.jpg",
+  "need": 230
+ },
+ {
+  "name": "戚继光",
+  "cat": "名将",
+  "title": "明",
+  "desc": "抗倭名将,创\"戚家军\"与鸳鸯阵,保东南海疆。",
+  "img": "guests/g22.jpg",
+  "need": 235
+ },
+ {
+  "name": "欧阳修",
+  "cat": "文人",
+  "title": "北宋",
+  "desc": "文坛领袖,作《醉翁亭记》,\"醉翁之意不在酒\"。",
+  "img": "guests/g34.jpg",
+  "need": 240
+ },
+ {
+  "name": "盛宣怀",
+  "cat": "巨贾",
+  "title": "清末",
+  "desc": "兴办轮船、电报、铁路与银行,\"中国实业之父\"之一。",
+  "img": "guests/g46.jpg",
+  "need": 245
+ },
+ {
+  "name": "朱棣",
+  "cat": "帝王",
+  "title": "明",
+  "desc": "迁都北京,修《永乐大典》,郑和下西洋于其时。",
+  "img": "guests/g58.jpg",
+  "need": 250
+ },
+ {
+  "name": "陈圆圆",
+  "cat": "美人",
+  "title": "明末清初",
+  "desc": "江南名伎,\"冲冠一怒为红颜\"的传说由她而起。",
+  "img": "guests/g11.jpg",
+  "need": 255
+ },
+ {
+  "name": "郭子仪",
+  "cat": "名将",
+  "title": "唐",
+  "desc": "平定安史之乱的功臣,位极人臣而福寿双全。",
+  "img": "guests/g23.jpg",
+  "need": 260
+ },
+ {
+  "name": "辛弃疾",
+  "cat": "文人",
+  "title": "南宋",
+  "desc": "词中之龙,\"醉里挑灯看剑\",以词抒壮志。",
+  "img": "guests/g35.jpg",
+  "need": 265
+ },
+ {
+  "name": "荣宗敬",
+  "cat": "巨贾",
+  "title": "民国",
+  "desc": "与弟荣德生创办面粉、纺织企业,人称\"面粉大王\"。",
+  "img": "guests/g47.jpg",
+  "need": 270
+ },
+ {
+  "name": "康熙",
+  "cat": "帝王",
+  "title": "清",
+  "desc": "在位六十一年,平三藩、收台湾,亲政勤学。",
+  "img": "guests/g59.jpg",
+  "need": 275
+ },
+ {
+  "name": "花木兰",
+  "cat": "美人",
+  "title": "南北朝",
+  "desc": "替父从军十二年,\"雌兔眼迷离\"传唱至今。",
+  "img": "guests/g12.jpg",
+  "need": 280
+ },
+ {
+  "name": "徐达",
+  "cat": "名将",
+  "title": "明",
+  "desc": "朱元璋的开国第一功臣,北伐灭元,治军严明。",
+  "img": "guests/g24.jpg",
+  "need": 285
+ },
+ {
+  "name": "曹雪芹",
+  "cat": "文人",
+  "title": "清",
+  "desc": "穷困中十年著书,留下《红楼梦》。",
+  "img": "guests/g36.jpg",
+  "need": 290
+ },
+ {
+  "name": "虞洽卿",
+  "cat": "巨贾",
+  "title": "民国",
+  "desc": "宁波商帮领袖,创办轮船公司,执上海商界牛耳。",
+  "img": "guests/g48.jpg",
+  "need": 295
+ },
+ {
+  "name": "乾隆",
+  "cat": "帝王",
+  "title": "清",
+  "desc": "在位六十年,盛世之巅,爱诗好书画,编《四库全书》。",
+  "img": "guests/g60.jpg",
+  "need": 300
+ }
+];
 })();
